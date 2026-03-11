@@ -11,10 +11,10 @@
       <nav class="nav-links">
         <router-link to="/velos">VÉLOS</router-link>
         <router-link to="/velos-electriques">VÉLOS ÉLECTRIQUES</router-link>
-        <router-link to="/equipements">ÉQUIPEMENTS</router-link>
+        <!-- <router-link to="/equipements">ÉQUIPEMENTS</router-link> -->
         <router-link to="/accessoires">ACCESSOIRES</router-link>
-        <router-link to="/communaute">COMMUNAUTÉ</router-link>
-        <router-link to="/promos">PROMOS</router-link>
+        <!-- <router-link to="/communaute">COMMUNAUTÉ</router-link>
+        <router-link to="/promos">PROMOS</router-link> -->
       </nav>
 
       <div class="nav-actions">

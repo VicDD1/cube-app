@@ -14,7 +14,23 @@ const router = createRouter({
             name: 'products',
           // Chargement différé (Lazy-loading) pour plus de performance
             component: () => import('../views/ProductsView.vue')
+        },
+        // router/index.js
+        {
+            path: '/velos-electriques',
+            name: 'electriques',
+            component: () => import('../views/ListArticle.vue'),
+            // On passe le mot exact présent dans ton JSON
+            props: { typeRecherche: 'electrique', title: 'Vélos Électriques' } 
+        },
+        {
+            path: '/velos',
+            name: 'musculaires',
+            component: () => import('../views/ListArticle.vue'),
+            // On passe le mot exact présent dans ton JSON
+            props: { typeRecherche: 'musculaire', title: 'Vélos Musculaires' }
         }
+
     ]
 })
 
