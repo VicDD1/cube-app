@@ -39,8 +39,15 @@ const router = createRouter({
         {
             path: '/accessoires',
             name: 'Accessoires',
-            component: () => import('../views/ListArticle.vue') // Assure-toi que le fichier existe !
-          }
+            component: () => import('../views/ListArticle.vue'), // Assure-toi que le fichier existe !
+            props: { typeArticle: 'Accessoires'}
+        },
+        {
+            path: '/produit/:id',
+            name: 'visualize', // Le nom doit correspondre à ce qu'il y a dans CardArticle
+            component: () => import('../views/VisualizeArticleView.vue'),
+            props: true
+        },
 
     ]
 })
