@@ -21,15 +21,20 @@ const router = createRouter({
             name: 'electriques',
             component: () => import('../views/ListArticle.vue'),
             // On passe le mot exact présent dans ton JSON
-            props: { typeRecherche: 'electrique', title: 'Vélos Électriques' } 
+            props: { typeVelo: 'electrique', title: 'Vélos Électriques' } 
         },
         {
             path: '/velos',
             name: 'musculaires',
             component: () => import('../views/ListArticle.vue'),
             // On passe le mot exact présent dans ton JSON
-            props: { typeRecherche: 'musculaire', title: 'Vélos Musculaires' }
-        }
+            props: { typeVelo: 'musculaire', title: 'Vélos Musculaires' }
+        },
+        {
+            path: '/accessoires',
+            name: 'Accessoires',
+            component: () => import('../views/ListArticle.vue') // Assure-toi que le fichier existe !
+          }
 
     ]
 })
