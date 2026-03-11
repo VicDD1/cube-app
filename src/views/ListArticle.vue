@@ -52,9 +52,9 @@ onMounted(fetchData)
 
     <div v-else class="vélos-grid">
       <CardArticle 
-        v-for="velo in modelesAffichés" 
-        :key="velo.reference" 
-        :velo="velo" 
+        v-for="item in modelesAffichés" 
+        :key="item.reference" 
+        :article="item" 
       />
     </div>
 
