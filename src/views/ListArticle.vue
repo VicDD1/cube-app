@@ -2,29 +2,34 @@
 import { ref, onMounted, watch } from 'vue'
 import CardArticle from '../components/CardArticle.vue'
 
-const props = defineProps(['typeVelo', 'title'])
+// Ajoute bien 'typeArticle' dans les props reçues
+const props = defineProps(['typeVelo', 'title', 'typeArticle'])
 const modelesAffichés = ref([])
 const loading = ref(true)
 
 const fetchData = async () => {
   loading.value = true
   try {
-    const url = `https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/VarianteVelo/GetVariantes`
+    let url = ''
+    // 1. Choix de l'URL selon si c'est Accessoires ou Vélos
+    if (props.typeArticle === 'Accessoires') {
+      url = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Accessoire/GetAccessoires'
+    } else {
+      url = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/VarianteVelo/GetVariantes'
+    }
+
     const response = await fetch(url)
-    
     if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`)
-    
-    const variantes = await response.json()
-    
-    // On filtre en allant chercher le type dans l'objet de navigation du modèle
-    if (props.typeVelo) {
-      modelesAffichés.value = variantes.filter(v => 
+    const data = await response.json()
+
+    // 2. Filtrage (Uniquement pour les vélos, car les accessoires n'ont pas de typeVelo)
+    if (props.typeArticle !== 'Accessoires' && props.typeVelo) {
+      modelesAffichés.value = data.filter(v => 
         v.idModeleNavigation?.typeVelo?.toLowerCase() === props.typeVelo.toLowerCase()
       )
     } else {
-      modelesAffichés.value = variantes
+      modelesAffichés.value = data
     }
-    
   } catch (error) {
     console.error("Erreur API :", error)
   } finally {

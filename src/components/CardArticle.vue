@@ -1,165 +1,192 @@
 <script setup>
-defineProps({
-  velo: {
-    type: Object,
-    required: true
-  }
+const props = defineProps({
+  velo: { type: Object, required: true }
 })
 
-// Fonction pour gérer les images locales dans le dossier assets
 const getImageUrl = (reference) => {
-  // On nettoie la référence au cas où il y aurait des espaces
-  const ref = reference.trim();
-  // On retourne le chemin. Note: Vite traite mieux les chemins via URL si c'est dynamique
-  return new URL(`../assets/images/VELOS/${ref}/image_1.webp`, import.meta.url).href
-}
-</script>
+  if (!reference) return ''
+  const ref = reference.trim()
 
+  
+  if(ref.length == 6){
+   
+    return new URL(`../assets/images/VELOS/${ref}/image_1.webp`, import.meta.url).href
+  
+  }else{
+    console.log(reference)
+    return new URL(`../assets/images/ACCESSOIRES/${ref}/image_1.webp`, import.meta.url).href
+  }
+ 
+}
+
+
+</script>
 <template>
   <div class="card-article">
-    <div class="badge" :class="velo.idModeleNavigation?.typeVelo?.toLowerCase()">
-      {{ velo.idModeleNavigation?.typeVelo }}
-    </div>
+   
 
     <div class="image-container">
       <img 
         :src="velo.image ? velo.image : getImageUrl(velo.reference)" 
         :alt="velo.nomArticle"
-        @error="(e) => e.target.src = 'https://via.placeholder.com/220x220?text=Image+Indisponible'"
+        @error="(e) => e.target.src = 'https://via.placeholder.com/400x300?text=Image+Indisponible'"
       >
     </div>
     
     <div class="card-content">
-      <div class="header-info">
-        <span class="ref">REF: {{ velo.reference.trim() }}</span>
-        <span class="poids">{{ velo.poids }} kg</span>
-      </div>
-
       <h3 class="nom">{{ velo.nomArticle }}</h3>
       
-      <p class="specs">
-        <strong>Cadre:</strong> {{ velo.idModeleNavigation?.materiauCadre }}<br>
-        <strong>Couleur:</strong> {{ velo.idCouleurNavigation?.nomCouleur?.trim() }}
-      </p>
-      
+      <div class="availability">
+        <div class="status-item">
+          <span class="dot green"></span> Disponible en ligne
+        </div>
+        <div class="status-item">
+          <span class="dot green"></span> Disponible en magasins
+        </div>
+      </div>
+
       <div class="card-footer">
-        <span class="prix">{{ velo.prix?.toLocaleString() }} €</span>
-        <button class="btn-buy">Découvrir</button>
+        <div class="price-container">
+          <span class="prix">{{ velo.prix?.toLocaleString() }} €</span>
+        </div>
+        <button class="btn-product">VOIR LE PRODUIT</button>
       </div>
     </div>
   </div>
 </template>
 
-
 <style scoped>
-/* --- Structure globale de la carte --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 .card-article {
+  font-family: 'Inter', sans-serif;
   background: #fff;
-  border-radius: 15px;
+  border-radius: 4px; /* Un très léger arrondi pour la modernité */
+  
+  /* AJOUT DU CADRE ICI */
+  border: 1px solid #e0e0e0; 
+  
   overflow: hidden;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-  position: relative;
   display: flex;
   flex-direction: column;
-  /* Optionnel : Tu peux aussi limiter la largeur maximale de la CARTE entière ici */
-  /* max-width: 300px; */ 
+  transition: all 0.3s ease;
+  padding: 20px;
+  position: relative; /* Important pour le positionnement du badge */
 }
 
-/* --- Conteneur de l'image (Crucial pour la taille) --- */
+/* EFFET AU SURVOL : Le cadre s'assombrit ou on ajoute une ombre */
+.card-article:hover {
+  border-color: #000; /* Le cadre devient noir au survol */
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1); /* Petite ombre portée pour décoller la carte */
+  transform: translateY(-5px); /* La carte monte légèrement */
+}
+
+/* --- Image --- */
 .image-container {
   width: 100%;
-  /* Fixe une hauteur maximale pour que toutes tes cartes aient la même hauteur d'image */
-  height: 220px; 
-  background: #f9f9f9;
+  height: 280px;
   display: flex;
-  align-items: center; /* Centre l'image verticalement si elle est plus petite */
-  justify-content: center; /* Centre l'image horizontalement */
-  padding: 15px; /* Un peu d'espace autour */
-  overflow: hidden; /* Empêche tout débordement */
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
 }
 
-/* --- L'IMAGE ELLE-MÊME (LES MAX-SIZE SONT ICI) --- */
 .image-container img {
-  /* Ces deux lignes garantissent que l'image ne dépassera JAMAIS son conteneur */
-  max-width: 100%;  /* Largeur max = largeur de .image-container */
-  max-height: 100%; /* Hauteur max = hauteur de .image-container (220px ici) */
-
-  /* Conserve les proportions de l'image sans la déformer */
-  object-fit: contain; 
-  
-  /* Pour s'assurer que l'image ne s'agrandit pas si elle est plus petite que 100% */
-  width: auto;
-  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.5s ease;
 }
 
-/* --- Reste des styles (inchangé ou légèrement nettoyé) --- */
-.badge {
+.card-article:hover img {
+  transform: scale(1.05);
+}
+
+/* --- Content --- */
+.card-content {
+  text-align: center; /* Centré comme sur ton image */
+}
+
+.nom {
+  font-size: 1.4rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-style: italic;
+  margin-bottom: 20px;
+  color: #000;
+  letter-spacing: -0.5px;
+}
+
+/* --- Availability (Les points verts) --- */
+.availability {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 30px;
+  padding-left: 20%; /* Pour décaler un peu vers le centre */
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 12px;
+}
+
+.dot.green {
+  background-color: #7ED321;
+}
+
+/* --- Footer & Prix --- */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.prix {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #000;
+}
+
+/* --- Bouton style parallélogramme --- */
+.btn-product {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 12px 25px;
+  font-weight: 900;
+  font-style: italic;
+  cursor: pointer;
+  clip-path: polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%); /* Crée l'effet penché */
+  transition: background 0.3s ease;
+}
+
+.btn-product:hover {
+  background: #333;
+}
+
+/* --- Badges --- */
+badge {
   position: absolute;
   top: 10px;
-  right: 10px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: bold;
+  left: 10px;
+  padding: 5px 15px;
+  font-weight: 800;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  z-index: 1;
-}
-.badge.electrique { background: #e3f2fd; color: #1976d2; }
-.badge.musculaire { background: #f1f8e9; color: #388e3c; }
-
-.card-content { 
-  padding: 1.2rem; 
-  flex-grow: 1; 
-  display: flex; 
-  flex-direction: column; 
+  background: #f0f0f0;
+  z-index: 10;
 }
 
-.header-info { 
-  display: flex; 
-  justify-content: space-between; 
-  font-size: 0.7rem; 
-  color: #999; 
-  margin-bottom: 5px; 
-}
 
-.nom { 
-  font-size: 1.1rem; 
-  color: #222; 
-  margin: 0 0 10px 0; 
-  line-height: 1.3; 
-  min-height: 2.6rem; /* Force 2 lignes de hauteur max pour l'alignement */
-}
-
-.specs { 
-  font-size: 0.85rem; 
-  color: #666; 
-  margin-bottom: 15px; 
-  flex-grow: 1; 
-}
-
-.card-footer { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  border-top: 1px solid #eee; 
-  padding-top: 15px; /* Correction 'pt' -> 'padding-top' */
-}
-
-.prix { 
-  font-size: 1.4rem; 
-  font-weight: 800; 
-  color: #2c3e50; 
-}
-
-.btn-buy { 
-  background: #2c3e50; 
-  color: white; 
-  border: none; 
-  padding: 10px 18px; 
-  border-radius: 8px; 
-  cursor: pointer; 
-  font-weight: 600; 
-  transition: background 0.2s;
-}
-.btn-buy:hover { background: #455a64; }
 </style>
