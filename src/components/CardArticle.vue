@@ -2,23 +2,20 @@
 import { RouterLink } from 'vue-router'
 
 const props = defineProps({
-  // Renommé de 'velo' à 'article' pour la polyvalence
+  // On garde 'article' ici
   article: { type: Object, required: true }
 })
 
 const getImageUrl = (reference) => {
   if (!reference) return ''
-
   const ref = reference.trim()
   const folder = ref.length === 6 ? 'VELOS' : 'ACCESSOIRES'
-
   return new URL(`../assets/images/${folder}/${ref}/image_1.webp`, import.meta.url).href
 }
 </script>
 
 <template>
-  <RouterLink class="card-article" :to="{ name: 'visualize', params: { id: article.reference?.trim() }}" >
-
+  <RouterLink v-if="article" class="card-article" :to="{ name: 'visualize', params: { id: article.reference?.trim() }}" >
     <div class="image-container">
       <img 
         :src="article.image ? article.image : getImageUrl(article.reference)" 
@@ -31,12 +28,8 @@ const getImageUrl = (reference) => {
       <h3 class="nom">{{ article.nomArticle }}</h3>
       
       <div class="availability">
-        <div class="status-item">
-          <span class="dot green"></span> Disponible en ligne
-        </div>
-        <div class="status-item">
-          <span class="dot green"></span> Disponible en magasins
-        </div>
+        <div class="status-item"><span class="dot green"></span> Disponible en ligne</div>
+        <div class="status-item"><span class="dot green"></span> Disponible en magasins</div>
       </div>
 
       <div class="card-footer">

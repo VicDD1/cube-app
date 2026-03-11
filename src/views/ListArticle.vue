@@ -22,6 +22,7 @@ const fetchData = async () => {
     const response = await fetch(url)
     const data = await response.json()
 
+    // CORRECTION ICI : .value au lieu de .ref
     if (isAccessoire) {
       allData.value = data
     } else if (props.typeVelo) {
@@ -38,38 +39,41 @@ const fetchData = async () => {
   }
 }
 
-// --- 1. EXTRACTION DES COULEURS (Dynamique selon les produits présents) ---
+// --- 1. Extraction des couleurs (Calculé) ---
 const availableColors = computed(() => {
   const colorsMap = new Map()
-  
   allData.value.forEach(item => {
     const colorObj = item.idCouleurNavigation 
     if (colorObj && colorObj.nomCouleur) {
       const name = colorObj.nomCouleur.trim()
       if (!colorsMap.has(name)) {
-        // On ajoute le # devant le code hexa s'il manque
         const rawHex = colorObj.hexaCouleur ? colorObj.hexaCouleur.trim() : 'dddddd'
         const cleanHex = rawHex.startsWith('#') ? rawHex : `#${rawHex}`
-        
-        colorsMap.set(name, {
-          nom: name,
-          code: cleanHex
-        })
+        colorsMap.set(name, { nom: name, code: cleanHex })
       }
     }
   })
   return Array.from(colorsMap.values()).sort((a, b) => a.nom.localeCompare(b.nom))
 })
 
-// --- 2. FILTRAGE DYNAMIQUE ---
+// --- 2. Filtrage Dynamique (Calculé) ---
 const modelesAffichés = computed(() => {
   return allData.value.filter(item => {
-    const matchPrice = item.prix <= filterPrice.value
+    // Vérification de sécurité sur le prix
+    const itemPrice = item.prix || 0
+    const matchPrice = itemPrice <= filterPrice.value
+    
     const colorName = item.idCouleurNavigation?.nomCouleur?.trim()
     const matchColor = selectedColors.value.length === 0 || selectedColors.value.includes(colorName)
+    
     return matchPrice && matchColor
   })
 })
+
+const resetFilters = () => {
+  filterPrice.value = 8000
+  selectedColors.value = []
+}
 
 watch(() => props.typeVelo, fetchData)
 onMounted(fetchData)
@@ -78,14 +82,19 @@ onMounted(fetchData)
 <template>
   <div class="shop-layout">
     <aside class="sidebar">
+      <div class="sidebar-top">
+        <h2 class="sidebar-main-title">Filtres</h2>
+        <button v-if="selectedColors.length > 0 || filterPrice < 8000" @click="resetFilters" class="btn-reset">Réinitialiser</button>
+      </div>
+
       <div class="filter-section">
-        <h3 class="section-title">PRIX</h3>
+        <h3 class="section-title">Budget</h3>
         <input type="range" min="0" max="8000" step="100" v-model="filterPrice" class="price-slider">
         <div class="price-value">{{ filterPrice.toLocaleString() }} €</div>
       </div>
 
-      <div v-if="availableColors.length > 0" class="filter-section" >
-        <h3 class="section-title">COULEURS</h3>
+      <div v-if="availableColors.length > 0" class="filter-section scrollable">
+        <h3 class="section-title">Couleurs</h3>
         <div class="colors-list">
           <div v-for="color in availableColors" :key="color.nom" class="color-item">
             <input 
@@ -96,11 +105,7 @@ onMounted(fetchData)
               class="hidden-checkbox"
             >
             <label :for="'color-' + color.nom" class="color-label">
-              <span 
-                class="color-circle" 
-                :style="{ backgroundColor: color.code }"
-                :title="color.nom"
-              ></span>
+              <span class="color-circle" :style="{ backgroundColor: color.code }"></span>
               <span class="color-name">{{ color.nom }}</span>
             </label>
           </div>
@@ -108,31 +113,19 @@ onMounted(fetchData)
       </div>
     </aside>
 
-
     <main class="main-content">
       <header class="list-header">
         <h1>{{ title }}</h1>
         <p v-if="!loading" class="count">{{ modelesAffichés.length }} modèles trouvés</p>
       </header>
 
-    <div v-else class="vélos-grid">
-      <CardArticle 
-        v-for="item in modelesAffichés" 
-        :key="item.reference" 
-        :article="item" 
-      />
-    </div>
-
-
       <div v-if="loading" class="loader">Chargement des produits...</div>
 
-      <div v-else class="products-grid">
-        <CardArticle 
-          v-for="velo in modelesAffichés" 
-          :key="velo.reference" 
-          :velo="velo" 
-        />
-      </div>
+      <div class="products-grid">
+  <CardArticle 
+    v-for="item in modelesAffichés" 
+    :key="item.reference" 
+    :article="item"  /></div>
 
       <div v-if="!loading && modelesAffichés.length === 0" class="empty">
         Aucun article ne correspond à vos critères de recherche.
@@ -140,6 +133,7 @@ onMounted(fetchData)
     </main>
   </div>
 </template>
+
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 
@@ -152,7 +146,6 @@ onMounted(fetchData)
   font-family: 'Inter', sans-serif;
 }
 
-/* --- SIDEBAR --- */
 .sidebar {
   width: 280px;
   flex-shrink: 0;
@@ -161,31 +154,57 @@ onMounted(fetchData)
   height: fit-content;
 }
 
+.sidebar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.sidebar-main-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-style: italic;
+}
+
+.btn-reset {
+  background: none;
+  border: none;
+  color: #40E0D0;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.7rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .filter-section {
-  max-height: 400px;
-  padding-left: 20px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  margin-bottom: 50px;
-  padding-bottom: 30px;
+  margin-bottom: 40px;
+  padding-bottom: 20px;
   border-bottom: 1px solid #f0f0f0;
 }
+
+.filter-section.scrollable {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+/* Custom Scrollbar */
+.filter-section::-webkit-scrollbar { width: 4px; }
+.filter-section::-webkit-scrollbar-track { background: #f1f1f1; }
+.filter-section::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
 
 .section-title {
   font-size: 0.85rem;
   font-weight: 900;
   text-transform: uppercase;
   font-style: italic;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
   letter-spacing: 1px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
-
-
-/* --- CUSTOM PRICE SLIDER --- */
 .price-slider {
   -webkit-appearance: none;
   width: 100%;
@@ -193,93 +212,59 @@ onMounted(fetchData)
   background: #e0e0e0;
   border-radius: 2px;
   outline: none;
-  margin: 20px 0;
 }
 
 .price-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   background: #000;
-  border: 4px solid #40E0D0;
+  border: 3px solid #40E0D0;
   border-radius: 50%;
   cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.price-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
 }
 
 .price-value {
+  margin-top: 10px;
   font-weight: 900;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-style: italic;
-  color: #000;
 }
 
-/* --- COLORS LIST --- */
-.colors-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+.colors-list { display: flex; flex-direction: column; gap: 10px; }
 
-.color-item {
-  position: relative;
-}
-
-/* On cache la checkbox par défaut pour un look plus moderne */
-.hidden-checkbox {
-  position: absolute;
-  opacity: 0;
-  cursor: pointer;
-}
+.hidden-checkbox { position: absolute; opacity: 0; }
 
 .color-label {
   display: flex;
   align-items: center;
   cursor: pointer;
+  padding: 6px 0;
+  transition: transform 0.2s ease;
+}
+
+.color-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-right: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.color-name {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   color: #888;
-  transition: all 0.2s ease;
-  padding: 4px 0;
 }
 
-.color-circle {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  margin-right: 15px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  position: relative;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Effet au survol */
-.color-label:hover {
-  color: #000;
-  transform: translateX(5px);
-}
-
-/* Style quand coché */
-.hidden-checkbox:checked + .color-label {
-  color: #000;
-}
-
+.hidden-checkbox:checked + .color-label .color-name { color: #000; }
 .hidden-checkbox:checked + .color-label .color-circle {
-  transform: scale(1.3);
+  transform: scale(1.2);
   border: 2px solid #000;
-  box-shadow: 0 0 0 3px rgba(64, 224, 208, 0.3); /* Halo cyan autour */
 }
 
-/* --- MAIN CONTENT --- */
-.main-content {
-  flex-grow: 1;
-}
+.main-content { flex-grow: 1; }
 
 .list-header {
   margin-bottom: 50px;
@@ -290,21 +275,7 @@ onMounted(fetchData)
   align-items: flex-end;
 }
 
-.list-header h1 {
-  font-size: 2.5rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  font-style: italic;
-  margin: 0;
-  letter-spacing: -1px;
-}
-
-.count {
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #888;
-  text-transform: uppercase;
-}
+.list-header h1 { font-size: 2.5rem; font-weight: 900; text-transform: uppercase; font-style: italic; margin: 0; }
 
 .products-grid {
   display: grid;
@@ -312,13 +283,5 @@ onMounted(fetchData)
   gap: 40px;
 }
 
-.loader, .empty {
-  text-align: center;
-  padding: 120px 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #bbb;
-  text-transform: uppercase;
-  font-style: italic;
-}
+.loader, .empty { text-align: center; padding: 100px 0; font-size: 1.1rem; font-weight: 700; color: #bbb; text-transform: uppercase; }
 </style>
