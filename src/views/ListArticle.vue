@@ -108,11 +108,21 @@ onMounted(fetchData)
       </div>
     </aside>
 
+
     <main class="main-content">
       <header class="list-header">
         <h1>{{ title }}</h1>
         <p v-if="!loading" class="count">{{ modelesAffichés.length }} modèles trouvés</p>
       </header>
+
+    <div v-else class="vélos-grid">
+      <CardArticle 
+        v-for="item in modelesAffichés" 
+        :key="item.reference" 
+        :article="item" 
+      />
+    </div>
+
 
       <div v-if="loading" class="loader">Chargement des produits...</div>
 

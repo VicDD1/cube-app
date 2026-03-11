@@ -1,40 +1,34 @@
 <script setup>
+import { RouterLink } from 'vue-router'
+
 const props = defineProps({
-  velo: { type: Object, required: true }
+  // Renommé de 'velo' à 'article' pour la polyvalence
+  article: { type: Object, required: true }
 })
 
 const getImageUrl = (reference) => {
   if (!reference) return ''
+
   const ref = reference.trim()
+  const folder = ref.length === 6 ? 'VELOS' : 'ACCESSOIRES'
 
-  
-  if(ref.length == 6){
-   
-    return new URL(`../assets/images/VELOS/${ref}/image_1.webp`, import.meta.url).href
-  
-  }else{
-    console.log(reference)
-    return new URL(`../assets/images/ACCESSOIRES/${ref}/image_1.webp`, import.meta.url).href
-  }
- 
+  return new URL(`../assets/images/${folder}/${ref}/image_1.webp`, import.meta.url).href
 }
-
-
 </script>
+
 <template>
-  <div class="card-article">
-   
+  <RouterLink class="card-article" :to="{ name: 'visualize', params: { id: article.reference?.trim() }}" >
 
     <div class="image-container">
       <img 
-        :src="velo.image ? velo.image : getImageUrl(velo.reference)" 
-        :alt="velo.nomArticle"
+        :src="article.image ? article.image : getImageUrl(article.reference)" 
+        :alt="article.nomArticle"
         @error="(e) => e.target.src = 'https://via.placeholder.com/400x300?text=Image+Indisponible'"
       >
     </div>
     
     <div class="card-content">
-      <h3 class="nom">{{ velo.nomArticle }}</h3>
+      <h3 class="nom">{{ article.nomArticle }}</h3>
       
       <div class="availability">
         <div class="status-item">
@@ -47,12 +41,12 @@ const getImageUrl = (reference) => {
 
       <div class="card-footer">
         <div class="price-container">
-          <span class="prix">{{ velo.prix?.toLocaleString() }} €</span>
+          <span class="prix">{{ article.prix?.toLocaleString() }} €</span>
         </div>
-        <button class="btn-product">VOIR LE PRODUIT</button>
+        <div class="btn-product">VOIR LE PRODUIT</div>
       </div>
     </div>
-  </div>
+  </RouterLink>
 </template>
 
 <style scoped>
@@ -64,7 +58,8 @@ const getImageUrl = (reference) => {
   
   /* AJOUT DU CADRE ICI */
   border: 1px solid #e0e0e0; 
-  
+  text-decoration: none;
+  color: inherit;
   overflow: hidden;
   display: flex;
   flex-direction: column;
