@@ -1,238 +1,245 @@
-<script setup>
-import { reactive, ref } from 'vue'
-import { User, Mail, Lock, Phone, MapPin, Send, AlertCircle, CheckCircle2 } from 'lucide-vue-next'
+<template>
+  <main class="connexion-page">
+    <div class="auth-card">
+      <header class="card-header">
+        <h1>CRÉER UN COMPTE</h1>
+        <div class="separator"></div>
+      </header>
+      
+      <form @submit.prevent="handleRegistration">
+        <div class="row">
+          <div class="field-group">
+            <label>NOM</label>
+            <input type="text" v-model="form.nom" placeholder="DUPONT" required>
+          </div>
+          <div class="field-group">
+            <label>PRÉNOM</label>
+            <input type="text" v-model="form.prenomClient" placeholder="JEAN" required>
+          </div>
+        </div>
 
-// Modèle de données strict pour correspondre à ton objet Client en C#
+        <div class="field-group">
+          <label>DATE DE NAISSANCE</label>
+          <input type="date" v-model="form.dateNaissance" required>
+        </div>
+
+        <div class="field-group">
+          <label>ADRESSE EMAIL</label>
+          <input type="email" v-model="form.email" placeholder="NOM@EXEMPLE.COM" required>
+        </div>
+
+        <div class="field-group">
+          <label>MOT DE PASSE</label>
+          <input type="password" v-model="form.password" placeholder="••••••••" required>
+        </div>
+
+        <div class="field-group">
+          <label>TÉLÉPHONE</label>
+          <input type="tel" v-model="form.telephone" placeholder="06 00 00 00 00">
+        </div>
+
+        <div class="field-group">
+          <label>ADRESSE</label>
+          <input type="text" v-model="form.adresse" placeholder="123 RUE DE CUBE, 74000 ANNECY">
+        </div>
+
+        <transition name="fade">
+          <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">
+            {{ feedback }}
+          </div>
+        </transition>
+
+        <button type="submit" :disabled="loading" class="submit-btn">
+          {{ loading ? 'ENREGISTREMENT...' : 'S\'INSCRIRE MAINTENANT' }}
+        </button>
+      </form>
+    </div>
+  </main>
+</template>
+
+<script setup>
+import { ref, reactive } from 'vue';
+
 const form = reactive({
   nom: '',
-  prenom: '',
+  prenomClient: '',
+  dateNaissance: '',
   email: '',
+  password: '',
   telephone: '',
-  adresse: '',
-  motDePasse: '',
-  // Les champs 'role' et 'dateInscription' seront gérés par le serveur
-})
+  adresse: ''
+});
 
-const loading = ref(false)
-const status = ref({ type: '', message: '' })
+const loading = ref(false);
+const feedback = ref('');
+const isError = ref(false);
 
-const handleRegister = async () => {
-  loading.value = true
-  status.value = { type: '', message: '' }
+const API_URL = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient';
+
+const handleRegistration = async () => {
+  loading.value = true;
+  feedback.value = '';
+  isError.value = false;
+
+  // 1. Formatage strict pour DateOnly (YYYY-MM-DD uniquement)
+  // L'input type="date" donne déjà ce format, on s'assure juste qu'il est propre.
+  const dateOnlyValue = form.dateNaissance; 
+
+  const clientData = {
+    nom: form.nom,
+    prenomClient: form.prenomClient,
+    dateNaissance: dateOnlyValue, // Envoi de "YYYY-MM-DD" sans l'heure
+    email: form.email,
+    password: form.password,
+    telephone: form.telephone || "",
+    adresse: form.adresse || "",
+    role: "client",
+    dateInscription: new Date().toISOString().split('T')[0] // Version DateOnly aussi pour l'inscription
+  };
 
   try {
-    // Utilisation de PostClient comme indiqué dans tes contrôleurs
-    const response = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient', {
+    const response = await fetch(API_URL, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json' 
       },
-      body: JSON.stringify(form)
-    })
+      // IMPORTANT: Si l'erreur persiste sur le champ "client", 
+      // essayez d'envelopper l'objet comme ceci : body: JSON.stringify({ client: clientData })
+      body: JSON.stringify(clientData)
+    });
 
     if (response.ok) {
-      status.value = { type: 'success', message: 'Inscription réussie ! Votre profil est prêt.' }
-      // Reset du formulaire après succès
-      Object.assign(form, { nom: '', prenom: '', email: '', telephone: '', adresse: '', motDePasse: '' })
+      feedback.value = "BIENVENUE ! VOTRE COMPTE A ÉTÉ CRÉÉ.";
+      Object.keys(form).forEach(key => form[key] = '');
     } else {
-      const errorText = await response.text()
-      status.value = { type: 'error', message: `Erreur ${response.status}: Impossible de créer le compte.` }
+      isError.value = true;
+      const errorJson = await response.json();
+      console.log("Détails Erreurs:", errorJson.errors);
+      feedback.value = "ERREUR DE VALIDATION : VÉRIFIEZ LE FORMAT DES CHAMPS.";
     }
   } catch (err) {
-    status.value = { type: 'error', message: 'Erreur réseau : Vérifiez votre connexion à l\'API Azure.' }
+    isError.value = true;
+    feedback.value = "ERREUR RÉSEAU : L'API EST INACCESSIBLE.";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 </script>
-
-<template>
-  <div class="page-container">
-    <div class="auth-card">
-      <div class="auth-header">
-        <div class="cube-accent"></div>
-        <h2>INSCRIPTION CLIENT</h2>
-        <p>Accédez à l'univers CUBE et gérez vos vélos et équipements.</p>
-      </div>
-
-      <form @submit.prevent="handleRegister" class="auth-form">
-        <div class="form-grid">
-          <div class="input-group">
-            <label><User :size="14" /> NOM</label>
-            <input v-model="form.nom" type="text" placeholder="Ex: SCHMIDT" required />
-          </div>
-
-          <div class="input-group">
-            <label><User :size="14" /> PRÉNOM</label>
-            <input v-model="form.prenom" type="text" placeholder="Ex: Hans" required />
-          </div>
-
-          <div class="input-group full">
-            <label><Mail :size="14" /> EMAIL</label>
-            <input v-model="form.email" type="email" placeholder="votre@email.com" required />
-          </div>
-
-          <div class="input-group">
-            <label><Phone :size="14" /> TÉLÉPHONE</label>
-            <input v-model="form.telephone" type="tel" placeholder="+33..." />
-          </div>
-
-          <div class="input-group">
-            <label><MapPin :size="14" /> ADRESSE</label>
-            <input v-model="form.adresse" type="text" placeholder="Ville ou adresse complète" />
-          </div>
-
-          <div class="input-group full">
-            <label><Lock :size="14" /> MOT DE PASSE</label>
-            <input v-model="form.motDePasse" type="password" placeholder="Minimum 6 caractères" required />
-          </div>
-        </div>
-
-        <button type="submit" class="submit-btn" :disabled="loading">
-          <span v-if="!loading">CRÉER MON COMPTE</span>
-          <span v-else>COMMUNICATION AVEC AZURE...</span>
-          <Send v-if="!loading" :size="18" />
-        </button>
-      </form>
-
-      <Transition name="slide-up">
-        <div v-if="status.message" :class="['status-msg', status.type]">
-          <AlertCircle v-if="status.type === 'error'" :size="18" />
-          <CheckCircle2 v-else :size="18" />
-          {{ status.message }}
-        </div>
-      </Transition>
-    </div>
-  </div>
-</template>
 
 <style scoped>
 @font-face {
-  font-family: 'CubeFont'; /* Le nom que tu donneras à ta police */
+  font-family: 'CubeFont';
   src: url('@/assets/fonts/font.woff2') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
 }
 
-:root {
-  /* On définit la police par défaut pour tout le site */
-  font-family: 'CubeFont', Arial, sans-serif;
-}
-.page-container {
+.connexion-page {
+  padding-top: 140px; 
+  padding-bottom: 80px;
   min-height: 100vh;
-  background-color: #111;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 140px 20px 80px;
-  /* Utilisation explicite ici si besoin */
+  background-color: #f4f4f4;
   font-family: 'CubeFont', sans-serif;
 }
 
 .auth-card {
   background: #fff;
   width: 100%;
-  max-width: 600px;
-  padding: 50px;
-  border-top: 4px solid #00a8e8;
+  max-width: 500px;
+  padding: 40px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+  border-top: 5px solid #000;
 }
 
-.cube-accent {
+.card-header h1 {
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  margin: 0;
+  text-align: center;
+}
+
+.separator {
   width: 40px;
   height: 4px;
-  background: #000;
-  margin-bottom: 20px;
+  background: #00a8e8;
+  margin: 15px auto 30px auto;
 }
 
-.auth-header h2 {
-  font-family: 'CubeFont', sans-serif; /* Applique la police au titre */
-  font-weight: 900;
-  font-style: italic; /* Très commun pour le style Cube */
-  font-size: 28px;
-  color: #000;
-  text-transform: uppercase;
+.row {
+  display: flex;
+  gap: 15px;
 }
 
-.auth-header p {
-  color: #666;
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 35px;
+.field-group {
+  margin-bottom: 18px;
+  flex: 1;
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 25px;
-}
-
-.full { grid-column: span 2; }
-
-.input-group label {
-  font-family: 'CubeFont', sans-serif;
+label {
+  display: block;
   font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #555;
 }
 
 input {
-  font-family: 'CubeFont', sans-serif; /* Pour que ce que l'utilisateur tape soit aussi dans la police */
   width: 100%;
   padding: 12px;
-  border: 1px solid #e0e0e0;
-  background: #f9f9f9;
+  border: 1px solid #ddd;
+  font-family: 'CubeFont', sans-serif;
+  font-size: 13px;
+  box-sizing: border-box;
+  outline: none;
+  background: #fcfcfc;
+}
+
+/* Style spécifique pour l'input date pour qu'il garde la police */
+input[type="date"] {
+  font-family: 'CubeFont', sans-serif;
+  text-transform: uppercase;
 }
 
 input:focus {
-  outline: none;
   border-color: #00a8e8;
   background: #fff;
 }
 
 .submit-btn {
   width: 100%;
-  margin-top: 40px;
-  background: #000;
+  padding: 16px;
+  background-color: #000;
   color: #fff;
   border: none;
-  padding: 18px;
   font-family: 'CubeFont', sans-serif;
-  font-weight: 900;
+  font-weight: 800;
   font-style: italic;
-  text-transform: uppercase;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
   cursor: pointer;
-  transition: background 0.3s;
+  margin-top: 10px;
 }
 
 .submit-btn:hover:not(:disabled) {
-  background: #00a8e8;
+  background-color: #00a8e8;
 }
 
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.message {
+  margin-bottom: 20px;
+  padding: 12px;
+  font-size: 12px;
+  text-align: center;
+  font-weight: 800;
 }
 
-.status-msg {
-  margin-top: 25px;
-  padding: 15px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-weight: 700;
-  font-size: 14px;
+.error { background-color: #fee2e2; color: #dc2626; border: 1px solid #dc2626; }
+.success { background-color: #ecfdf5; color: #059669; border: 1px solid #059669; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 480px) {
+  .row { flex-direction: column; gap: 0; }
 }
-
-.error { background: #fee2e2; color: #b91c1c; border-left: 4px solid #b91c1c; }
-.success { background: #ecfdf5; color: #047857; border-left: 4px solid #047857; }
-
-/* Transitions */
-.slide-up-enter-active { transition: all 0.3s ease-out; }
-.slide-up-enter-from { opacity: 0; transform: translateY(10px); }
 </style>
