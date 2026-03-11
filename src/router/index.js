@@ -14,6 +14,12 @@ const router = createRouter({
             name: 'products',
           // Chargement différé (Lazy-loading) pour plus de performance
             component: () => import('../views/ProductsView.vue')
+        },
+        {
+            path: '/connexion',
+            name: 'connexion',
+          // Chargement différé (Lazy-loading) pour plus de performance
+            component: () => import('../views/ConnexionView.vue')
         }
     ]
 })
