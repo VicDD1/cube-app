@@ -20,7 +20,28 @@ const router = createRouter({
             name: 'connexion',
           // Chargement différé (Lazy-loading) pour plus de performance
             component: () => import('../views/ConnexionView.vue')
-        }
+        },
+        // router/index.js
+        {
+            path: '/velos-electriques',
+            name: 'electriques',
+            component: () => import('../views/ListArticle.vue'),
+            // On passe le mot exact présent dans ton JSON
+            props: { typeVelo: 'electrique', title: 'Vélos Électriques' } 
+        },
+        {
+            path: '/velos',
+            name: 'musculaires',
+            component: () => import('../views/ListArticle.vue'),
+            // On passe le mot exact présent dans ton JSON
+            props: { typeVelo: 'musculaire', title: 'Vélos Musculaires' }
+        },
+        {
+            path: '/accessoires',
+            name: 'Accessoires',
+            component: () => import('../views/ListArticle.vue') // Assure-toi que le fichier existe !
+          }
+
     ]
 })
 
