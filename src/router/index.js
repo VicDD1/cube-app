@@ -27,10 +27,10 @@ const router = createRouter({
         },
         {
             path: '/velos',
-            name: 'velos', // J'ai renommé en 'velos' au lieu de 'musculaires'
+            name: 'velos', 
             component: () => import('../views/ListArticle.vue'),
-            // En ne passant pas typeVelo, ListArticle affichera TOUS les vélos
-            props: { title: 'Tous nos vélos' }
+           
+            props: { title: 'Vélos Musculaires' }
         },
         {
             path: '/accessoires',
