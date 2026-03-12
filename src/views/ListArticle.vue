@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
+import { useRoute } from 'vue-router' // Permet de lire l'URL
 import CardArticle from '../components/CardArticle.vue'
 
 // Importation des images
@@ -8,6 +9,7 @@ import imgVeloMusc from '../assets/images/velo_route.webp'
 import imgAccessoires from '../assets/images/accessoires-de-velo.webp'
 
 const props = defineProps(['typeVelo', 'title', 'typeArticle'])
+const route = useRoute() // Initialisation de route
 const allData = ref([]) 
 const loading = ref(true)
 
@@ -78,8 +80,9 @@ const fetchData = async () => {
   loading.value = true
   try {
     const isAccessoire = props.typeArticle === 'Accessoires'
-    
-    const url = isAccessoire 
+
+    // 1. Définition des URLs (Vélos + Arbre des catégories)
+    const urlArticles = isAccessoire
       ? 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Accessoire/GetAccessoires'
       : 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/VarianteVelo/GetVariantes'
 
@@ -177,7 +180,6 @@ const modelesAffichés = computed(() => {
   return allData.value.filter(item => {
     const itemPrice = item.prix || 0
     const matchPrice = itemPrice <= filterPrice.value
-    
     const colorName = item.idCouleurNavigation?.nomCouleur?.trim()
     const matchColor = selectedColors.value.length === 0 || selectedColors.value.includes(colorName)
 
