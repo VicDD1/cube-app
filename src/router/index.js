@@ -12,43 +12,39 @@ const router = createRouter({
         {
             path: '/produits',
             name: 'products',
-          // Chargement différé (Lazy-loading) pour plus de performance
             component: () => import('../views/ProductsView.vue')
         },
         {
             path: '/connexion',
             name: 'connexion',
-          // Chargement différé (Lazy-loading) pour plus de performance
             component: () => import('../views/ConnexionView.vue')
         },
-        // router/index.js
         {
             path: '/velos-electriques',
             name: 'electriques',
             component: () => import('../views/ListArticle.vue'),
-            // On passe le mot exact présent dans ton JSON
             props: { typeVelo: 'electrique', title: 'Vélos Électriques' } 
         },
         {
             path: '/velos',
-            name: 'musculaires',
+            name: 'velos', 
             component: () => import('../views/ListArticle.vue'),
-            // On passe le mot exact présent dans ton JSON
-            props: { typeVelo: 'musculaire', title: 'Vélos Musculaires' }
+           
+            props: { title: 'Vélos Musculaires' }
         },
         {
             path: '/accessoires',
             name: 'Accessoires',
-            component: () => import('../views/ListArticle.vue'), // Assure-toi que le fichier existe !
-            props: { typeArticle: 'Accessoires'}
+            component: () => import('../views/ListArticle.vue'),
+            // J'ai rajouté un title pour que ton <h1> ne soit pas vide
+            props: { typeArticle: 'Accessoires', title: 'Tous nos accessoires' }
         },
         {
             path: '/produit/:id',
-            name: 'visualize', // Le nom doit correspondre à ce qu'il y a dans CardArticle
+            name: 'visualize', 
             component: () => import('../views/VisualizeArticleView.vue'),
             props: true
-        },
-
+        }
     ]
 })
 
