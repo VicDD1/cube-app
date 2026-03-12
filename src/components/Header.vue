@@ -9,65 +9,73 @@
       </div>
 
       <nav class="nav-links">
-
-
-        <div class="nav-item" @mouseenter="openMenu" @mouseleave="closeMenu">
-          <router-link to="/velos" class="main-link">VÉLOS</router-link>
+        <div 
+          v-for="nav in navigationLinks" 
+          :key="nav.id"
+          class="nav-item" 
+          @mouseenter="openMenu(nav.id)" 
+          @mouseleave="closeMenu"
+        >
+          <router-link :to="nav.url" class="main-link">{{ nav.label }}</router-link>
           
-          <div v-if="isMenuOpen" class="mega-menu">
+          <div v-if="activeMenuId === nav.id" class="mega-menu">
             
             <div class="menu-column">
-              <ul v-if="mainCategories.length > 0">
+              <ul 
+                v-if="mainCategories.length > 0" 
+                @mouseleave="startClear" 
+                @mouseenter="cancelClear"
+              >
                 <li 
                   v-for="cat in mainCategories" 
-                  :key="getId(cat) || Math.random()"
-                  @mouseenter="loadSubCategories(getId(cat))"
+                  :key="getId(cat)"
+                  @mouseenter="loadSubCategories(getId(cat)); cancelClear()"
+                  @click="navigateToFilter(cat)"
                   :class="{ active: activeMainId === getId(cat) }"
                 >
-                  {{ getName(cat) === 'Inconnu' ? cat : getName(cat) }}
+                  {{ getName(cat) }}
                 </li>
               </ul>
-              <p v-else style="color:red; font-size:12px;">Chargement ou Erreur API...</p>
             </div>
 
             <div class="menu-column" v-if="subCategories.length > 0">
-              <ul>
+              <ul @mouseleave="startClear" @mouseenter="cancelClear">
                 <li 
                   v-for="sub in subCategories" 
-                  :key="getId(sub) || Math.random()"
-                  @mouseenter="loadModels(getId(sub))"
+                  :key="getId(sub)"
+                  @mouseenter="loadModels(getId(sub)); cancelClear()"
+                  @click="navigateToFilter(sub)"
                   :class="{ active: activeSubId === getId(sub) }"
                 >
-                  {{ getName(sub) === 'Inconnu' ? sub : getName(sub) }}
+                  {{ getName(sub) }}
                 </li>
               </ul>
             </div>
 
             <div class="menu-column" v-if="models.length > 0">
-              <ul>
-                <li v-for="modele in models" :key="getId(modele) || Math.random()">
-                  {{ getName(modele) === 'Inconnu' ? modele : getName(modele) }}
+              <ul @mouseleave="startClear" @mouseenter="cancelClear">
+                <li 
+                  v-for="modele in models" 
+                  :key="getId(modele)"
+                  @click="navigateToFilter(modele)"
+                >
+                  {{ getName(modele) }}
                 </li>
               </ul>
             </div>
 
-            <div class="menu-image">
-              <img src="@/assets/images/1.webp" alt="Vélos Cube">
+            <div class="menu-image" @mouseenter="startClear">
+              <img src="@/assets/images/1.webp" alt="Menu CUBE">
             </div>
 
           </div>
         </div>
-
-        <router-link to="/velos-electriques" class="main-link">VÉLOS ÉLECTRIQUES</router-link>
-        <router-link to="/accessoires" class="main-link">ACCESSOIRES</router-link>
-
       </nav>
 
       <div class="nav-actions">
         <a href="#" class="shop-link">CHOISIR UN MAGASIN <Store :size="18" :stroke-width="2" /></a>
-        <router-link to="/connexion" class="icon-btn">
-          <User :size="20" :stroke-width="2" />
-        </router-link>
+        <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
+        <button class="icon-btn"><User :size="20" :stroke-width="2" /></button>
         <div class="cart-container">
           <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
           <span class="cart-badge">0</span>
@@ -79,47 +87,66 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Store, Search, User, ShoppingCart } from 'lucide-vue-next'
 
-// Ton API Azure
 const baseUrl = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net'
+const router = useRouter()
 
-const isMenuOpen = ref(false)
+const navigationLinks = [
+  { id: 'velos', label: 'VÉLOS', url: '/velos' },
+  { id: 'electriques', label: 'VÉLOS ÉLECTRIQUES', url: '/velos-electriques' },
+  { id: 'accessoires', label: 'ACCESSOIRES', url: '/accessoires' }
+]
+
+const activeMenuId = ref(null)
 const mainCategories = ref([])
 const subCategories = ref([])
 const models = ref([])
 
 const activeMainId = ref(null)
 const activeSubId = ref(null)
+let hoverTimeout = null
 
-// Helpers ultra-larges pour chopper l'ID et le Nom peu importe comment l'API les nomme
-const getId = (item) => item?.id || item?.Id || item?.idCategorie || item?.IdCategorie || item?.idModele || null
-const getName = (item) => item?.nom || item?.Nom || item?.libelle || item?.Libelle || item?.name || 'Inconnu'
+const getId = (item) => item.idCategorieAccessoire || item.idCategorie || item.IdCategorie || item.IDCATEGORIE || item.idModele || item.IdModele || item.reference || item.Reference || item.id || Math.random()
+const getName = (item) => item.nomCategorieAccessoire || item.nomCategorie || item.NomCategorie || item.NOMCATEGORIE || item.nomModele || item.NomModele || item.nom || item.Nom || 'Inconnu'
 
-onMounted(async () => {
-  try {
-    const res = await fetch(`${baseUrl}/api/CategorieVelo/GetMain`)
-    const data = await res.json()
-    console.log("🔥 REPONSE API GetMain :", data) // Regarde dans F12 !
-    
-    // Gère le cas où l'API C# renvoie les données dans un sous-objet (ex: $values)
-    mainCategories.value = data.$values || data.data || data
-  } catch (e) {
-    console.error("Erreur API GetMain:", e)
-  }
-})
+const navigateToFilter = (item) => {
+  const name = getName(item)
+  let path = '/velos'
+  
+  if (activeMenuId.value === 'electriques') path = '/velos-electriques'
+  else if (activeMenuId.value === 'accessoires') path = '/accessoires'
 
-const openMenu = () => {
-  isMenuOpen.value = true
+  router.push({
+    path: path,
+    query: { filterName: name }
+  })
+  closeMenu()
 }
 
-const closeMenu = () => {
-  isMenuOpen.value = false
-  activeMainId.value = null
-  activeSubId.value = null
+const openMenu = async (id) => {
+  if (activeMenuId.value === id) return
+  
+  activeMenuId.value = id
+  mainCategories.value = []
   subCategories.value = []
   models.value = []
+  activeMainId.value = null
+  activeSubId.value = null
+
+  try {
+    const endpoint = id === 'accessoires' 
+      ? '/api/CategorieAccessoire/GetMain' 
+      : '/api/CategorieVelo/GetMain'
+
+    const res = await fetch(`${baseUrl}${endpoint}`)
+    const data = await res.json()
+    mainCategories.value = data.$values || data.data || data
+  } catch (e) {
+    console.error(`Erreur API Main Categories pour ${id}:`, e)
+  }
 }
 
 const loadSubCategories = async (id) => {
@@ -129,12 +156,15 @@ const loadSubCategories = async (id) => {
   models.value = []
   
   try {
-    const res = await fetch(`${baseUrl}/api/CategorieVelo/GetSubCategories/${id}`)
+    const endpoint = activeMenuId.value === 'accessoires'
+      ? `/api/CategorieAccessoire/GetSubCategories/${id}`
+      : `/api/CategorieVelo/GetSubCategories/${id}`
+
+    const res = await fetch(`${baseUrl}${endpoint}`)
     const data = await res.json()
-    console.log("🔥 REPONSE API GetSubCategories :", data)
     subCategories.value = data.$values || data.data || data
   } catch (e) {
-    console.error("Erreur API GetSubCategories:", e)
+    console.error("Erreur API SubCategories:", e)
   }
 }
 
@@ -143,13 +173,51 @@ const loadModels = async (id) => {
   activeSubId.value = id
   
   try {
-    const res = await fetch(`${baseUrl}/api/Modele/GetByCategory/${id}`)
+    const endpoint = activeMenuId.value === 'accessoires'
+      ? `/api/Accessoire/GetByCategory/${id}`
+      : `/api/Modele/GetByCategory/${id}`
+
+    const res = await fetch(`${baseUrl}${endpoint}`)
     const data = await res.json()
-    console.log("🔥 REPONSE API Modeles :", data)
-    models.value = data.$values || data.data || data
+    let items = data.$values || data.data || data
+
+    if (activeMenuId.value === 'electriques') {
+      items = items.filter(m => {
+        const type = m.typeVelo || m.TypeVelo || m.type || m.Type || ''
+        return type.toLowerCase().includes('electrique') || type.toLowerCase().includes('électrique')
+      })
+    } else if (activeMenuId.value === 'velos') {
+      items = items.filter(m => {
+        const type = m.typeVelo || m.TypeVelo || m.type || m.Type || ''
+        return !type.toLowerCase().includes('electrique') && !type.toLowerCase().includes('électrique')
+      })
+    }
+
+    models.value = items
   } catch (e) {
-    console.error("Erreur API GetByCategory:", e)
+    console.error("Erreur API Modeles/Articles:", e)
   }
+}
+
+const closeMenu = () => {
+  activeMenuId.value = null
+  activeMainId.value = null
+  activeSubId.value = null
+  subCategories.value = []
+  models.value = []
+}
+
+const startClear = () => {
+  hoverTimeout = setTimeout(() => {
+    activeMainId.value = null
+    activeSubId.value = null
+    subCategories.value = []
+    models.value = []
+  }, 150)
+}
+
+const cancelClear = () => {
+  if (hoverTimeout) clearTimeout(hoverTimeout)
 }
 </script>
 
@@ -167,7 +235,8 @@ const loadModels = async (id) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 25px 40px;
+  height: 90px;
+  padding: 0 40px;
   background-color: transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
@@ -180,7 +249,7 @@ const loadModels = async (id) => {
 
 .nav-links {
   display: flex;
-  gap: 25px;
+  gap: 15px;
   height: 100%;
 }
 
@@ -225,11 +294,11 @@ const loadModels = async (id) => {
 .cart-container { position: relative; display: flex; align-items: center; }
 .cart-badge { position: absolute; top: -8px; right: -8px; background-color: #00a8e8; color: white; font-size: 10px; font-weight: bold; padding: 2px 5px; border-radius: 10px; }
 
-/* MEGA MENU */
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 10px 0;
+  height: 100%;
+  padding: 0 10px;
 }
 
 .mega-menu {
@@ -244,6 +313,7 @@ const loadModels = async (id) => {
   box-shadow: 0 10px 30px rgba(0,0,0,0.1);
   border-top: 1px solid #eaeaea;
   cursor: default;
+  z-index: 100;
 }
 
 .menu-column {
@@ -273,7 +343,7 @@ const loadModels = async (id) => {
   transition: color 0.2s;
 }
 
-.menu-column li:hover, .menu-column li.active {
+.menu-column li.active, .menu-column li:hover {
   color: #00a8e8;
 }
 
@@ -282,7 +352,7 @@ const loadModels = async (id) => {
   width: 400px;
   height: 250px;
   overflow: hidden;
-  background-color: #f5f5f5; /* Fond gris si l'image ne charge pas */
+  background-color: #f5f5f5;
 }
 
 .menu-image img {

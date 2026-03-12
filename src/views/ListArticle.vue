@@ -131,6 +131,7 @@ onMounted(fetchData)
         Aucun article ne correspond à vos critères de recherche.
       </div>
     </main>
+    
   </div>
 </template>
 
