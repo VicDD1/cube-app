@@ -38,9 +38,45 @@
           <input type="tel" v-model="form.telephone" placeholder="06 00 00 00 00">
         </div>
 
-        <div class="field-group">
-          <label>ADRESSE</label>
-          <input type="text" v-model="form.adresse" placeholder="123 RUE DE CUBE, 74000 ANNECY">
+        <div class="row">
+          <div class="field-group">
+            <label>RUE (FACTURATION)</label>
+            <input type="text" v-model="form.rueFacturation" placeholder="14 Ave Pascal Paoli" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field-group">
+            <label>CODE POSTAL</label>
+            <input type="text" v-model="form.cpFacturation" placeholder="20000" required>
+          </div>
+          <div class="field-group">
+            <label>VILLE</label>
+            <input type="text" v-model="form.villeFacturation" placeholder="Ajaccio" required>
+          </div>
+        </div>
+
+        <div class="field-group checkbox-container">
+          <input type="checkbox" v-model="sameAddress" id="same">
+          <label for="same">L'ADRESSE DE LIVRAISON EST IDENTIQUE</label>
+        </div>
+
+        <div v-if="!sameAddress" class="delivery-section">
+          <div class="row">
+            <div class="field-group">
+              <label>RUE (LIVRAISON)</label>
+              <input type="text" v-model="form.rueLivraison" placeholder="123 RUE DE CUBE" :required="!sameAddress">
+            </div>
+          </div>
+          <div class="row">
+            <div class="field-group">
+              <label>CODE POSTAL (LIVRAISON)</label>
+              <input type="text" v-model="form.cpLivraison" placeholder="74000" :required="!sameAddress">
+            </div>
+            <div class="field-group">
+              <label>VILLE (LIVRAISON)</label>
+              <input type="text" v-model="form.villeLivraison" placeholder="ANNECY" :required="!sameAddress">
+            </div>
+          </div>
         </div>
 
         <transition name="fade">
@@ -60,67 +96,137 @@
 <script setup>
 import { ref, reactive } from 'vue';
 
+const sameAddress = ref(true);
+const loading = ref(false);
+const feedback = ref('');
+const isError = ref(false);
+
 const form = reactive({
   nom: '',
   prenomClient: '',
   dateNaissance: '',
   email: '',
   password: '',
-  telephone: '',
-  adresse: ''
+  telephone: '', 
+  rueFacturation: '',
+  cpFacturation: '',
+  villeFacturation: '',
+  rueLivraison: '',
+  cpLivraison: '',
+  villeLivraison: '',
+  pays: 'France'
 });
 
-const loading = ref(false);
-const feedback = ref('');
-const isError = ref(false);
-
-const API_URL = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient';
-
 const handleRegistration = async () => {
+  // Sécurité pour éviter les clics frénétiques
+  if (loading.value) return;
+
   loading.value = true;
-  feedback.value = '';
+  feedback.value = "Phase 1 : Enregistrement de l'adresse de facturation...";
   isError.value = false;
 
-  // 1. Formatage strict pour DateOnly (YYYY-MM-DD uniquement)
-  // L'input type="date" donne déjà ce format, on s'assure juste qu'il est propre.
-  const dateOnlyValue = form.dateNaissance; 
-
-  const clientData = {
-    nom: form.nom,
-    prenomClient: form.prenomClient,
-    dateNaissance: dateOnlyValue, // Envoi de "YYYY-MM-DD" sans l'heure
-    email: form.email,
-    password: form.password,
-    telephone: form.telephone || "",
-    adresse: form.adresse || "",
-    role: "client",
-    dateInscription: new Date().toISOString().split('T')[0] // Version DateOnly aussi pour l'inscription
-  };
-
   try {
-    const response = await fetch(API_URL, {
+    // --- PHASE 1 : CRÉATION ADRESSE DE FACTURATION ---
+    const resAddr = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json' 
-      },
-      // IMPORTANT: Si l'erreur persiste sur le champ "client", 
-      // essayez d'envelopper l'objet comme ceci : body: JSON.stringify({ client: clientData })
-      body: JSON.stringify(clientData)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idAdresse: 0,
+        rue: form.rueFacturation,
+        codePostal: String(form.cpFacturation),
+        ville: form.villeFacturation,
+        pays: "France"
+      })
     });
 
-    if (response.ok) {
-      feedback.value = "BIENVENUE ! VOTRE COMPTE A ÉTÉ CRÉÉ.";
-      Object.keys(form).forEach(key => form[key] = '');
-    } else {
-      isError.value = true;
-      const errorJson = await response.json();
-      console.log("Détails Erreurs:", errorJson.errors);
-      feedback.value = "ERREUR DE VALIDATION : VÉRIFIEZ LE FORMAT DES CHAMPS.";
+    if (!resAddr.ok) throw new Error("Erreur lors de la création de l'adresse de facturation.");
+    const adrFactData = await resAddr.json();
+    const idAdFacturation = adrFactData.idAdresse;
+
+    // --- PHASE 2 : CRÉATION DU COMPTE CLIENT ---
+    feedback.value = "Phase 2 : Création de votre profil...";
+    
+    const clientPayload = {
+      idClient: 0,
+      idAdresseFacturation: idAdFacturation,
+      nomClient: form.nom.trim(),
+      prenomClient: form.prenomClient.trim(),
+      emailClient: form.email.trim(),
+      mdp: form.password,
+      tel: String(form.telephone || ""),
+      dateInscription: new Date().toISOString().split('T')[0],
+      dateNaissance: form.dateNaissance, // Format YYYY-MM-DD via l'input date
+      role: "client",
+      client: null // Champ parfois requis par ton API
+    };
+
+    const resClient = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(clientPayload)
+    });
+
+    if (!resClient.ok) {
+      const errorTxt = await resClient.text();
+      throw new Error(`Erreur Client : ${errorTxt || 'Vérifiez si l\'email existe déjà'}`);
     }
+
+    const clientData = await resClient.json();
+    const idClient = clientData.idClient; 
+
+    // --- PHASE 3 : GESTION DE L'ADRESSE DE LIVRAISON (PHYSIQUE) ---
+    let idAdLivraisonFinal = idAdFacturation;
+
+    if (!sameAddress.value) {
+      feedback.value = "Phase 3 : Enregistrement de l'adresse de livraison...";
+      const resAddrLiv = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idAdresse: 0,
+          rue: form.rueLivraison,
+          codePostal: String(form.cpLivraison),
+          ville: form.villeLivraison,
+          pays: "France"
+        })
+      });
+      
+      if (resAddrLiv.ok) {
+        const adrLivData = await resAddrLiv.json();
+        idAdLivraisonFinal = adrLivData.idAdresse;
+      }
+    }
+
+    // --- PHASE 4 : LIAISON DANS LA TABLE ADRESSELIVRAISON ---
+    feedback.value = "Phase 4 : Finalisation des préférences...";
+    const resLiaison = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        idClient: idClient,
+        idAdresse: idAdLivraisonFinal,
+        nomDestinataire: form.nom,
+        prenomDestinataire: form.prenomClient
+      })
+    });
+
+    if (!resLiaison.ok) {
+      console.warn("La liaison de livraison a échoué, mais le compte est créé.");
+    }
+
+    // SUCCÈS TOTAL
+    isError.value = false;
+    feedback.value = "INSCRIPTION RÉUSSIE AVEC SUCCÈS !";
+    
+    // Optionnel : Réinitialiser le formulaire ici si tu le souhaites
+
   } catch (err) {
+    console.error("ERREUR INSCRIPTION:", err);
     isError.value = true;
-    feedback.value = "ERREUR RÉSEAU : L'API EST INACCESSIBLE.";
+    // Gestion du cas où Azure crash sans réponse (NetworkError)
+    feedback.value = (err instanceof TypeError) 
+      ? "Erreur réseau : Le serveur a crashé (vérifiez les dates ou l'email)." 
+      : err.message;
   } finally {
     loading.value = false;
   }
