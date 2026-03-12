@@ -114,14 +114,19 @@ const getName = (item) => item.nomCategorieAccessoire || item.nomCategorie || it
 
 const navigateToFilter = (item) => {
   const name = getName(item)
-  let path = '/velos'
+  const id = getId(item)
   
+
+  const isModele = item.idModele || item.IdModele || item.nomModele ? 'modele' : 'categorie'
+
+  let path = '/velos'
   if (activeMenuId.value === 'electriques') path = '/velos-electriques'
   else if (activeMenuId.value === 'accessoires') path = '/accessoires'
 
   router.push({
     path: path,
-    query: { filterName: name }
+    // On ajoute filterType dans l'URL pour la page d'arrivée
+    query: { filterName: name, filterId: id, filterType: isModele }
   })
   closeMenu()
 }

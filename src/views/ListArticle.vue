@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
+import { useRoute } from 'vue-router' // Permet de lire l'URL
 import CardArticle from '../components/CardArticle.vue'
 
 const props = defineProps(['typeVelo', 'title', 'typeArticle'])
+const route = useRoute() // Initialisation de route
 const allData = ref([]) 
 const loading = ref(true)
 
@@ -14,23 +16,80 @@ const fetchData = async () => {
   loading.value = true
   try {
     const isAccessoire = props.typeArticle === 'Accessoires'
-    
-    const url = isAccessoire 
+
+    // 1. Définition des URLs (Vélos + Arbre des catégories)
+    const urlArticles = isAccessoire
       ? 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Accessoire/GetAccessoires'
       : 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/VarianteVelo/GetVariantes'
+    
+    const urlCategories = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/CategorieVelo/GetCategories'
 
-    const response = await fetch(url)
-    const data = await response.json()
+    // 2. On lance les deux appels API en même temps pour aller plus vite
+    const [resArticles, resCategories] = await Promise.all([
+      fetch(urlArticles),
+      !isAccessoire ? fetch(urlCategories) : Promise.resolve({ json: () => [] })
+    ])
 
-    // CORRECTION ICI : .value au lieu de .ref
+const data = await resArticles.json()
+    const categoriesData = await resCategories.json()
+    const allCategories = categoriesData.$values || categoriesData || []
+
+    const filterId = route.query.filterId ? Number(route.query.filterId) : null
+    // On récupère le type qu'on vient d'envoyer depuis le header !
+    const filterType = route.query.filterType 
+
     if (isAccessoire) {
       allData.value = data
-    } else if (props.typeVelo) {
-      allData.value = data.filter(v => 
-        v.idModeleNavigation?.typeVelo?.toLowerCase() === props.typeVelo.toLowerCase()
-      )
     } else {
-      allData.value = data
+      
+      // --- ÉTAPE A : Tri ULTRA STRICT Musculaire vs Électrique ---
+      // On regarde carrément l'URL de ta page pour être sûr à 100% de là où on est
+      const isRouteElectrique = route.path.includes('electrique')
+
+      let velosTries = data.filter(v => {
+        const typeVeloAPI = v.idModeleNavigation?.typeVelo?.toLowerCase() || ''
+        
+        // Si on est dans "Vélos Électriques", on DÉGAGE tout ce qui n'a pas le mot électrique
+        if (isRouteElectrique && !typeVeloAPI.includes('electrique')) return false
+        
+        // Si on est dans "Vélos" (musculaires), on DÉGAGE tout ce qui a le mot électrique
+        if (!isRouteElectrique && typeVeloAPI.includes('electrique')) return false
+        
+        return true
+      })
+
+      // --- ÉTAPE B : Tri intelligent par Catégorie OU par Modèle ---
+      if (filterId) {
+        
+        if (filterType === 'modele') {
+          // Cas n°1 : Tu as cliqué sur un MODÈLE (ex: Phenix). 
+          // On ne garde QUE les vélos qui ont cet idModele précis. C'est direct.
+          velosTries = velosTries.filter(v => v.idModeleNavigation?.idModele === filterId)
+          
+        } else {
+          // Cas n°2 : Tu as cliqué sur une CATÉGORIE (ex: VTT ou Cross-Country).
+          // On fait notre fameuse recherche d'arbre généalogique.
+          let idsValides = [filterId]
+
+          const trouverEnfants = (idParent) => {
+            allCategories.forEach(cat => {
+              const idParentAPI = cat.catIdCategorie 
+              const idCat = cat.idCategorie 
+              if (idParentAPI === idParent && !idsValides.includes(idCat)) {
+                idsValides.push(idCat)
+                trouverEnfants(idCat)
+              }
+            })
+          }
+
+          trouverEnfants(filterId)
+
+          // On garde les vélos dont la catégorie fait partie des idsValides
+          velosTries = velosTries.filter(v => idsValides.includes(v.idModeleNavigation?.idCategorie))
+        }
+      }
+
+      allData.value = velosTries
     }
   } catch (error) {
     console.error("Erreur API :", error)
@@ -39,8 +98,8 @@ const fetchData = async () => {
   }
 }
 
-// --- 1. Extraction des couleurs (Calculé) ---
-const availableColors = computed(() => {
+// ... Tes computed (availableColors et modelesAffichés) et tes filtres restent EXACTEMENT pareils ...
+const availableColors = computed(() => { /* Ton code actuel */
   const colorsMap = new Map()
   allData.value.forEach(item => {
     const colorObj = item.idCouleurNavigation 
@@ -56,16 +115,12 @@ const availableColors = computed(() => {
   return Array.from(colorsMap.values()).sort((a, b) => a.nom.localeCompare(b.nom))
 })
 
-// --- 2. Filtrage Dynamique (Calculé) ---
-const modelesAffichés = computed(() => {
+const modelesAffichés = computed(() => { /* Ton code actuel */
   return allData.value.filter(item => {
-    // Vérification de sécurité sur le prix
     const itemPrice = item.prix || 0
     const matchPrice = itemPrice <= filterPrice.value
-    
     const colorName = item.idCouleurNavigation?.nomCouleur?.trim()
     const matchColor = selectedColors.value.length === 0 || selectedColors.value.includes(colorName)
-    
     return matchPrice && matchColor
   })
 })
@@ -75,7 +130,9 @@ const resetFilters = () => {
   selectedColors.value = []
 }
 
-watch(() => props.typeVelo, fetchData)
+// On relance la recherche si on change de page, MAIS AUSSI si on clique sur un nouveau lien du header
+watch([() => props.typeVelo, () => route.query.filterId], fetchData)
+
 onMounted(fetchData)
 </script>
 
