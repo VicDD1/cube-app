@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
-import { useRoute } from 'vue-router' // Permet de lire l'URL
+import { useRoute } from 'vue-router'
 import CardArticle from '../components/CardArticle.vue'
 
 // Importation des images
@@ -9,7 +9,7 @@ import imgVeloMusc from '../assets/images/velo_route.webp'
 import imgAccessoires from '../assets/images/accessoires-de-velo.webp'
 
 const props = defineProps(['typeVelo', 'title', 'typeArticle'])
-const route = useRoute() // Initialisation de route
+const route = useRoute()
 const allData = ref([]) 
 const loading = ref(true)
 
@@ -40,6 +40,7 @@ const selectedColors = ref([])
 const selectedCategories = ref([])
 const searchQuery = ref('')
 const categoriesMap = ref(new Map())
+const allRawCategories = ref([]) // Pour la recherche des sous-catégories
 
 // --- Gestion du Voir + / Voir - pour les couleurs ---
 const showAllColors = ref(false)
@@ -57,10 +58,14 @@ const fetchCategories = async () => {
     const data = await res.json()
 
     const newMap = new Map()
+    const flatCategories = []
+
     const extractCats = (cats) => {
       cats.forEach(c => {
         if (c && c.idCategorie && c.nomCategorie) {
           newMap.set(c.idCategorie, c.nomCategorie.trim())
+          flatCategories.push(c)
+          
           if (c.inverseCatIdCategorieNavigation && c.inverseCatIdCategorieNavigation.length > 0) {
             extractCats(c.inverseCatIdCategorieNavigation)
           }
@@ -68,8 +73,9 @@ const fetchCategories = async () => {
       })
     }
     
-    extractCats(data || [])
+    extractCats(data.$values || data || [])
     categoriesMap.value = newMap
+    allRawCategories.value = flatCategories
   } catch (error) {
     console.error("Erreur API Catégories :", error)
   }
@@ -81,14 +87,13 @@ const fetchData = async () => {
   try {
     const isAccessoire = props.typeArticle === 'Accessoires'
 
-    // 1. Définition des URLs (Vélos + Arbre des catégories)
     const urlArticles = isAccessoire
       ? 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Accessoire/GetAccessoires'
       : 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/VarianteVelo/GetVariantes'
 
     const response = await fetch(urlArticles)
     const data = await response.json()
-    const rawData = data || []
+    const rawData = data.$values || data || []
 
     if (isAccessoire) {
       allData.value = rawData
@@ -105,10 +110,10 @@ const fetchData = async () => {
         }
 
         if (titleLower.includes('electrique') || titleLower.includes('électrique')) {
-          return typeVeloData === 'electrique'
+          return typeVeloData.includes('electrique') || typeVeloData.includes('électrique')
         }
 
-        return typeVeloData === 'musculaire'
+        return !typeVeloData.includes('electrique') && !typeVeloData.includes('électrique')
       })
     }
 
@@ -165,27 +170,80 @@ const availableColors = computed(() => {
   return Array.from(colorsMap.values()).sort((a, b) => a.nom.localeCompare(b.nom))
 })
 
-// --- Computed : Couleurs affichées (Voir +) ---
 const displayedColors = computed(() => {
   if (!availableColors.value) return []
-  return showAllColors.value 
-    ? availableColors.value 
-    : availableColors.value.slice(0, COLORS_LIMIT)
+  return showAllColors.value ? availableColors.value : availableColors.value.slice(0, COLORS_LIMIT)
 })
 
-// --- Computed : Filtrage Dynamique ---
+// --- Reset global ---
+const resetFilters = () => {
+  filterPrice.value = maxPrice.value
+  selectedColors.value = []
+  selectedCategories.value = []
+  searchQuery.value = ''
+  showAllColors.value = false
+}
+
+// --- Synchronisation de l'URL avec les cases de la sidebar ---
+const syncFiltersFromUrl = () => {
+  // On réinitialise uniquement les autres filtres (prix, couleur...)
+  filterPrice.value = maxPrice.value
+  selectedColors.value = []
+  searchQuery.value = ''
+  showAllColors.value = false
+  
+  const fId = Number(route.query.filterId)
+  if (route.query.filterType === 'categorie' && fId) {
+    // 🔴 LA CORRECTION EST ICI : 
+    // On force la valeur dans selectedCategories immédiatement. 
+    // Vue cochera la case automatiquement dès qu'elle apparaîtra à l'écran !
+    selectedCategories.value = [fId]
+  } else {
+    selectedCategories.value = []
+  }
+}
+
+// --- Computed : Filtrage Dynamique UNIFIÉ (URL + Sidebar) ---
 const modelesAffichés = computed(() => {
   if (!allData.value || !Array.isArray(allData.value)) return []
 
-  return allData.value.filter(item => {
+  let baseList = allData.value
+
+  // 1. Filtrage d'un modèle spécifique (Uniquement par URL car il n'y a pas de case "Modèle" à gauche)
+  if (route.query.filterType === 'modele' && route.query.filterId && selectedCategories.value.length === 0) {
+    const fId = Number(route.query.filterId)
+    baseList = baseList.filter(item => item.idModeleNavigation?.idModele === fId)
+  }
+
+  // 2. Gestion des Catégories (Prend les cases cochées ET l'URL car syncFiltersFromUrl les a unifiés)
+  let idsValides = [...selectedCategories.value]
+  
+  if (idsValides.length > 0) {
+    // Si on a coché (ou cliqué via le menu) une catégorie parent, on va chercher toutes ses sous-catégories
+    const trouverEnfants = (idParent) => {
+      allRawCategories.value.forEach(cat => {
+        if (cat.catIdCategorie === idParent && !idsValides.includes(cat.idCategorie)) {
+          idsValides.push(cat.idCategorie)
+          trouverEnfants(cat.idCategorie) // Recherche récursive
+        }
+      })
+    }
+    selectedCategories.value.forEach(id => trouverEnfants(id))
+  }
+
+  // 3. Application de TOUS les filtres sur les vélos
+  return baseList.filter(item => {
     const itemPrice = item.prix || 0
     const matchPrice = itemPrice <= filterPrice.value
+    
     const colorName = item.idCouleurNavigation?.nomCouleur?.trim()
     const matchColor = selectedColors.value.length === 0 || selectedColors.value.includes(colorName)
 
     const isAccessoire = props.typeArticle === 'Accessoires'
     const idCat = isAccessoire ? item.idCategorie : item.idModeleNavigation?.idCategorie
-    const matchCategory = selectedCategories.value.length === 0 || selectedCategories.value.includes(idCat)
+    
+    // Si aucune case cochée -> on affiche tout. Sinon, on vérifie si la catégorie est dans notre liste d'IDs valides
+    const matchCategory = idsValides.length === 0 || idsValides.includes(idCat)
 
     const searchTerm = searchQuery.value.toLowerCase().trim()
     const itemName = item.idModeleNavigation?.nomModele?.toLowerCase() || item.nom?.toLowerCase() || ''
@@ -202,26 +260,29 @@ const recommandations = computed(() => {
   return allData.value.slice(0, 4)
 })
 
-// --- Reset unique ---
-const resetFilters = () => {
-  filterPrice.value = maxPrice.value
-  selectedColors.value = []
-  selectedCategories.value = []
-  searchQuery.value = ''
-  showAllColors.value = false
-}
-
 // --- Observers ---
 watch(() => props.title, fetchData)
-watch(() => props.typeArticle, () => {
-  fetchCategories()
-  fetchData()
-})
-watch(() => props.typeVelo, fetchData)
 
-onMounted(() => {
-  fetchCategories()
-  fetchData()
+watch(() => props.typeArticle, async () => {
+  await fetchCategories()
+  await fetchData()
+  syncFiltersFromUrl()
+})
+
+watch(() => props.typeVelo, async () => {
+  await fetchData()
+  syncFiltersFromUrl()
+})
+
+// Quand l'URL change (clic dans le mega-menu), on force la case à se cocher
+watch(() => route.query, () => {
+  syncFiltersFromUrl()
+})
+
+onMounted(async () => {
+  await fetchCategories()
+  await fetchData()
+  syncFiltersFromUrl()
 })
 </script>
 

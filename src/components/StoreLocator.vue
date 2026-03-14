@@ -17,17 +17,26 @@ const searchQuery = ref('')
 const onlyInStock = ref(false)
 const gpsStatus = ref('Recherche de votre position...')
 
-// Icônes Leaflet
 const greenIcon = new L.Icon({ iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png", shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png", iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
 const blueIcon = new L.Icon({ iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png", shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png", iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
 const redIcon = new L.Icon({ iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png", shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png", iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
 
+// 🔴 LA CORRECTION EST ICI
 const toggle = () => {
   isVisible.value = !isVisible.value
   if (isVisible.value) {
     document.body.style.overflow = "hidden"
     if (!magasins.value.length) fetchMagasins()
-    if (!map.value) nextTick(initMap)
+    
+    // Si la carte n'existe pas, on la crée
+    if (!map.value) {
+      nextTick(initMap)
+    } else {
+      // Si elle existe déjà, on la force à recalculer sa taille car elle était cachée !
+      setTimeout(() => {
+        if (map.value) map.value.invalidateSize()
+      }, 150)
+    }
   } else {
     document.body.style.overflow = ""
   }
@@ -177,7 +186,7 @@ const switchView = (view) => {
 </script>
 
 <template>
-  <div v-if="isVisible" class="sl-overlay" @click.self="toggle">
+  <div v-show="isVisible" class="sl-overlay" @click.self="toggle">
     <div class="sl-modal">
       <button class="sl-close" @click="toggle">✖</button>
       
@@ -186,7 +195,7 @@ const switchView = (view) => {
         <div class="sl-controls">
           <input type="text" v-model="searchQuery" placeholder="Ville, nom du magasin..." class="sl-search">
           <label class="sl-toggle">
-            <input type="checkbox" v-model="onlyInStock"> <span>Uniquement en stock</span>
+            <input type="checkbox" v-model="onlyInStock"> <span>En stock</span>
           </label>
         </div>
         
@@ -207,7 +216,7 @@ const switchView = (view) => {
             <p v-if="mag.distance" class="sl-distance">{{ mag.distance.toFixed(1) }} km</p>
             <button class="btn-select" @click="selectStore(mag)">SÉLECTIONNER</button>
           </div>
-          <div v-if="!magasinsFiltres.length" style="padding: 20px;">Aucun magasin trouvé.</div>
+          <div v-if="!magasinsFiltres.length" class="empty-state">Aucun magasin trouvé.</div>
         </div>
 
         <div v-show="currentView === 'map'" class="sl-map-container">
@@ -219,30 +228,60 @@ const switchView = (view) => {
 </template>
 
 <style scoped>
-.sl-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; justify-content: center; align-items: center; }
-.sl-modal { background: #fff; width: 90%; max-width: 1000px; height: 80vh; display: flex; flex-direction: column; position: relative; border-radius: 8px; overflow: hidden; font-family: 'Inter', sans-serif;}
-.sl-close { position: absolute; top: 15px; right: 20px; font-size: 24px; background: none; border: none; cursor: pointer; }
-.sl-header { padding: 30px; border-bottom: 1px solid #eee; }
-.sl-header h2 { font-style: italic; font-weight: 900; margin-top: 0; text-transform: uppercase;}
-.sl-controls { display: flex; gap: 20px; margin-bottom: 20px; }
-.sl-search { flex: 1; padding: 10px; border: 1px solid #ccc; font-family: 'Inter', sans-serif; }
+.sl-overlay { 
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+  background: rgba(0,0,0,0.5); z-index: 1000; 
+  display: flex; justify-content: flex-end; 
+  align-items: flex-start;
+}
+
+.sl-modal { 
+  background: #fff; 
+  width: 30%; 
+  min-width: 400px; 
+  height: 100vh; 
+  display: flex; flex-direction: column; position: relative; 
+  font-family: 'Inter', sans-serif;
+  box-shadow: -5px 0 25px rgba(0,0,0,0.1);
+  animation: slideInRight 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.sl-close { position: absolute; top: 15px; right: 20px; font-size: 28px; background: none; border: none; cursor: pointer; color: #000; z-index: 10;}
+.sl-close:hover { color: #00A3E0; }
+
+.sl-header { padding: 40px 30px 20px; border-bottom: 1px solid #eee; }
+.sl-header h2 { font-style: italic; font-weight: 900; margin-top: 0; text-transform: uppercase; font-size: 1.4rem;}
+
+.sl-controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+.sl-search { width: 100%; padding: 12px; border: 1.5px solid #ccc; font-family: 'Inter', sans-serif; font-weight: 700; box-sizing: border-box; outline: none; border-radius: 4px; transition: border 0.3s;}
+.sl-search:focus { border-color: #000; }
+.sl-toggle { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+
 .sl-tabs { display: flex; border-bottom: 2px solid #eee; }
-.sl-tabs button { flex: 1; background: none; border: none; padding: 15px; font-weight: bold; cursor: pointer; }
+.sl-tabs button { flex: 1; background: none; border: none; padding: 15px; font-weight: 800; cursor: pointer; font-style: italic; font-size: 1rem; color: #888; transition: color 0.3s;}
 .sl-tabs button.active { border-bottom: 3px solid #000; color: #000; }
+
 .sl-content { flex: 1; display: flex; overflow: hidden; background: #f9f9f9; }
 
 .sl-list { flex: 1; overflow-y: auto; padding: 20px; }
 .gps-status { font-size: 12px; color: #888; margin-bottom: 15px; font-style: italic; }
 
-.sl-card { background: #fff; padding: 20px; margin-bottom: 15px; border: 1px solid #eaeaea; position: relative; transition: 0.3s; }
+.sl-card { background: #fff; padding: 20px; margin-bottom: 15px; border: 1px solid #eaeaea; position: relative; transition: 0.3s; border-radius: 8px;}
 .sl-card.top-closest { border: 2px solid #000; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-.badge-proche { position: absolute; top: -10px; left: 15px; background: #000; color: #fff; font-size: 11px; padding: 4px 8px; font-weight: bold; text-transform: uppercase;}
+.badge-proche { position: absolute; top: -10px; left: 15px; background: #000; color: #fff; font-size: 10px; padding: 4px 10px; font-weight: 900; text-transform: uppercase; border-radius: 20px;}
 
-.sl-card h3 { margin: 0 0 10px 0; font-size: 16px; font-weight: 900; text-transform: uppercase;}
-.sl-card p { margin: 5px 0; font-size: 14px; color: #555;}
-.btn-select { background: #000; color: #fff; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; margin-top: 10px; font-style: italic; }
-.btn-select:hover { background: #333; }
-.sl-distance { position: absolute; top: 20px; right: 20px; font-weight: bold; color: #40E0D0 !important; font-size: 16px !important;}
+.sl-card h3 { margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 900; text-transform: uppercase;}
+.sl-card p { margin: 5px 0; font-size: 0.9rem; color: #555; line-height: 1.4;}
+.btn-select { background: #000; color: #fff; border: none; padding: 10px; width: 100%; cursor: pointer; font-weight: 900; margin-top: 15px; font-style: italic; border-radius: 4px; transition: background 0.3s;}
+.btn-select:hover { background: #00A3E0; }
+
+.sl-distance { position: absolute; top: 20px; right: 20px; font-weight: 900; color: #00A3E0; font-size: 1rem; }
+.empty-state { text-align: center; padding: 40px 20px; font-weight: 700; color: #888; }
 
 .sl-map-container { flex: 1; display: flex; }
 .leaflet-map { width: 100%; height: 100%; z-index: 1;}
