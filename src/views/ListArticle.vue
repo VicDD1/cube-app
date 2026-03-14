@@ -86,7 +86,7 @@ const fetchData = async () => {
       ? 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Accessoire/GetAccessoires'
       : 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/VarianteVelo/GetVariantes'
 
-    const response = await fetch(url)
+    const response = await fetch(urlArticles)
     const data = await response.json()
     const rawData = data || []
 
