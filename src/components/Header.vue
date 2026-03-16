@@ -1,95 +1,8 @@
-<template>
-  <header class="cube-header">
-    <div class="main-nav">
-      
-      <div class="logo">
-        <router-link to="/">
-          <img src="@/assets/images/logo-cube-blanc.png" alt="CUBE" class="logo-img" />
-        </router-link>
-      </div>
-
-      <nav class="nav-links">
-        <div 
-          v-for="nav in navigationLinks" 
-          :key="nav.id"
-          class="nav-item" 
-          @mouseenter="openMenu(nav.id)" 
-          @mouseleave="closeMenu"
-        >
-          <router-link :to="nav.url" class="main-link">{{ nav.label }}</router-link>
-          
-          <div v-if="activeMenuId === nav.id" class="mega-menu">
-            
-            <div class="menu-column">
-              <ul 
-                v-if="mainCategories.length > 0" 
-                @mouseleave="startClear" 
-                @mouseenter="cancelClear"
-              >
-                <li 
-                  v-for="cat in mainCategories" 
-                  :key="getId(cat)"
-                  @mouseenter="loadSubCategories(getId(cat)); cancelClear()"
-                  @click="navigateToFilter(cat)"
-                  :class="{ active: activeMainId === getId(cat) }"
-                >
-                  {{ getName(cat) }}
-                </li>
-              </ul>
-            </div>
-
-            <div class="menu-column" v-if="subCategories.length > 0">
-              <ul @mouseleave="startClear" @mouseenter="cancelClear">
-                <li 
-                  v-for="sub in subCategories" 
-                  :key="getId(sub)"
-                  @mouseenter="loadModels(getId(sub)); cancelClear()"
-                  @click="navigateToFilter(sub)"
-                  :class="{ active: activeSubId === getId(sub) }"
-                >
-                  {{ getName(sub) }}
-                </li>
-              </ul>
-            </div>
-
-            <div class="menu-column" v-if="models.length > 0">
-              <ul @mouseleave="startClear" @mouseenter="cancelClear">
-                <li 
-                  v-for="modele in models" 
-                  :key="getId(modele)"
-                  @click="navigateToFilter(modele)"
-                >
-                  {{ getName(modele) }}
-                </li>
-              </ul>
-            </div>
-
-            <div class="menu-image" @mouseenter="startClear">
-              <img src="@/assets/images/1.webp" alt="Menu CUBE">
-            </div>
-
-          </div>
-        </div>
-      </nav>
-
-      <div class="nav-actions">
-        <a href="#" class="shop-link">CHOISIR UN MAGASIN <Store :size="18" :stroke-width="2" /></a>
-        <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
-        <button class="icon-btn"><User :size="20" :stroke-width="2" /></button>
-        <div class="cart-container">
-          <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
-          <span class="cart-badge">0</span>
-        </div>
-      </div>
-
-    </div>
-  </header>
-</template>
-
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Store, Search, User, ShoppingCart } from 'lucide-vue-next'
+import StoreLocator from './StoreLocator.vue'
 
 const baseUrl = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net'
 const router = useRouter()
@@ -109,14 +22,27 @@ const activeMainId = ref(null)
 const activeSubId = ref(null)
 let hoverTimeout = null
 
+// --- GESTION DU MAGASIN ---
+const storeLocatorRef = ref(null)
+const magasinChoisi = ref(null)
+
+const openStoreLocator = () => {
+  storeLocatorRef.value?.toggle()
+}
+
+const handleStoreSelection = (magasin) => {
+  console.log("Le Header a bien reçu le magasin :", magasin)
+  magasinChoisi.value = magasin.nomAffiche
+  // Tu pourras sauvegarder l'ID du magasin dans un store Pinia ou le localStorage ici plus tard
+}
+// --------------------------
+
 const getId = (item) => item.idCategorieAccessoire || item.idCategorie || item.IdCategorie || item.IDCATEGORIE || item.idModele || item.IdModele || item.reference || item.Reference || item.id || Math.random()
 const getName = (item) => item.nomCategorieAccessoire || item.nomCategorie || item.NomCategorie || item.NOMCATEGORIE || item.nomModele || item.NomModele || item.nom || item.Nom || 'Inconnu'
 
 const navigateToFilter = (item) => {
   const name = getName(item)
   const id = getId(item)
-  
-
   const isModele = item.idModele || item.IdModele || item.nomModele ? 'modele' : 'categorie'
 
   let path = '/velos'
@@ -125,7 +51,6 @@ const navigateToFilter = (item) => {
 
   router.push({
     path: path,
-    // On ajoute filterType dans l'URL pour la page d'arrivée
     query: { filterName: name, filterId: id, filterType: isModele }
   })
   closeMenu()
@@ -225,6 +150,98 @@ const cancelClear = () => {
   if (hoverTimeout) clearTimeout(hoverTimeout)
 }
 </script>
+
+<template>
+  <header class="cube-header">
+    <div class="main-nav">
+      
+      <div class="logo">
+        <router-link to="/">
+          <img src="@/assets/images/logo-cube-blanc.png" alt="CUBE" class="logo-img" />
+        </router-link>
+      </div>
+
+      <nav class="nav-links">
+        <div 
+          v-for="nav in navigationLinks" 
+          :key="nav.id"
+          class="nav-item" 
+          @mouseenter="openMenu(nav.id)" 
+          @mouseleave="closeMenu"
+        >
+          <router-link :to="nav.url" class="main-link">{{ nav.label }}</router-link>
+          
+          <div v-if="activeMenuId === nav.id" class="mega-menu">
+            
+            <div class="menu-column">
+              <ul 
+                v-if="mainCategories.length > 0" 
+                @mouseleave="startClear" 
+                @mouseenter="cancelClear"
+              >
+                <li 
+                  v-for="cat in mainCategories" 
+                  :key="getId(cat)"
+                  @mouseenter="loadSubCategories(getId(cat)); cancelClear()"
+                  @click="navigateToFilter(cat)"
+                  :class="{ active: activeMainId === getId(cat) }"
+                >
+                  {{ getName(cat) }}
+                </li>
+              </ul>
+            </div>
+
+            <div class="menu-column" v-if="subCategories.length > 0">
+              <ul @mouseleave="startClear" @mouseenter="cancelClear">
+                <li 
+                  v-for="sub in subCategories" 
+                  :key="getId(sub)"
+                  @mouseenter="loadModels(getId(sub)); cancelClear()"
+                  @click="navigateToFilter(sub)"
+                  :class="{ active: activeSubId === getId(sub) }"
+                >
+                  {{ getName(sub) }}
+                </li>
+              </ul>
+            </div>
+
+            <div class="menu-column" v-if="models.length > 0">
+              <ul @mouseleave="startClear" @mouseenter="cancelClear">
+                <li 
+                  v-for="modele in models" 
+                  :key="getId(modele)"
+                  @click="navigateToFilter(modele)"
+                >
+                  {{ getName(modele) }}
+                </li>
+              </ul>
+            </div>
+
+            <div class="menu-image" @mouseenter="startClear">
+              <img src="@/assets/images/1.webp" alt="Menu CUBE">
+            </div>
+
+          </div>
+        </div>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="#" class="shop-link" @click.prevent="openStoreLocator">
+          {{ magasinChoisi ? magasinChoisi : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
+        </a>
+        <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
+        <router-link to="/connexion" class="icon-btn"><User :size="20" :stroke-width="2" /></router-link>
+        <div class="cart-container">
+          <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
+          <span class="cart-badge">0</span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <StoreLocator ref="storeLocatorRef" @storeSelected="handleStoreSelection" />
+</template>
 
 <style scoped>
 .cube-header {
