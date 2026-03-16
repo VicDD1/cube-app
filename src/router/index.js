@@ -43,6 +43,12 @@ const router = createRouter({
             name: 'visualize', 
             component: () => import('../views/VisualizeArticleView.vue'),
             props: true
+        },
+        {
+            path: '/panier',
+            name: 'CartView',
+            component: () => import('../views/CartView.vue'),
+           
         }
     ]
 })
