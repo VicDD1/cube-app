@@ -280,9 +280,7 @@ const cancelClear = () => {
         <div class="cart-container">
           <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
           <span class="cart-badge">0</span>
-        </div>
-    </div>
-  </header>
+        </div> </div> </div> </header>
 
   <StoreLocator ref="storeLocatorRef" @storeSelected="handleStoreSelection" />
 </template>

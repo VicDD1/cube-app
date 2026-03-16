@@ -195,7 +195,6 @@ onMounted(fetchData)
         <div class="thumbnails-row">
           <img 
             v-for="i in 4" :key="i"
-            v-for="i in 4" :key="i"
             :src="getLocalImage(reference, i)"
             @click="currentImgIndex = i"
             :class="{ active: currentImgIndex === i }"
