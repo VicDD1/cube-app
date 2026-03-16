@@ -38,20 +38,31 @@
           <input type="tel" v-model="form.telephone" placeholder="06 00 00 00 00">
         </div>
 
-        <div class="row">
-          <div class="field-group">
-            <label>RUE (FACTURATION)</label>
-            <input type="text" v-model="form.rueFacturation" placeholder="14 Ave Pascal Paoli" required>
-          </div>
+        <div class="field-group" style="position: relative;">
+          <label>RUE (FACTURATION)</label>
+          <input 
+            type="text" 
+            v-model="form.rueFacturation" 
+            @input="onAddressInput(form.rueFacturation)"
+            placeholder="Tapez votre adresse..." 
+            autocomplete="off"
+            required
+          >
+          <ul v-if="suggestions.length > 0" class="address-suggestions">
+            <li v-for="s in suggestions" :key="s.properties.id" @click="selectAdresse(s, 'facturation')">
+              {{ s.properties.label }}
+            </li>
+          </ul>
         </div>
+
         <div class="row">
           <div class="field-group">
             <label>CODE POSTAL</label>
-            <input type="text" v-model="form.cpFacturation" placeholder="20000" required>
+            <input type="text" v-model="form.cpFacturation" placeholder="20000" readonly required>
           </div>
           <div class="field-group">
             <label>VILLE</label>
-            <input type="text" v-model="form.villeFacturation" placeholder="Ajaccio" required>
+            <input type="text" v-model="form.villeFacturation" placeholder="Ajaccio" readonly required>
           </div>
         </div>
 
@@ -61,20 +72,30 @@
         </div>
 
         <div v-if="!sameAddress" class="delivery-section">
-          <div class="row">
-            <div class="field-group">
-              <label>RUE (LIVRAISON)</label>
-              <input type="text" v-model="form.rueLivraison" placeholder="123 RUE DE CUBE" :required="!sameAddress">
-            </div>
+          <div class="field-group" style="position: relative;">
+            <label>RUE (LIVRAISON)</label>
+            <input 
+              type="text" 
+              v-model="form.rueLivraison" 
+              @input="onAddressInput(form.rueLivraison)"
+              placeholder="Rue de livraison" 
+              autocomplete="off"
+              :required="!sameAddress"
+            >
+            <ul v-if="suggestions.length > 0" class="address-suggestions">
+              <li v-for="s in suggestions" :key="s.properties.id" @click="selectAdresse(s, 'livraison')">
+                {{ s.properties.label }}
+              </li>
+            </ul>
           </div>
           <div class="row">
             <div class="field-group">
               <label>CODE POSTAL (LIVRAISON)</label>
-              <input type="text" v-model="form.cpLivraison" placeholder="74000" :required="!sameAddress">
+              <input type="text" v-model="form.cpLivraison" placeholder="74000" readonly :required="!sameAddress">
             </div>
             <div class="field-group">
               <label>VILLE (LIVRAISON)</label>
-              <input type="text" v-model="form.villeLivraison" placeholder="ANNECY" :required="!sameAddress">
+              <input type="text" v-model="form.villeLivraison" placeholder="ANNECY" readonly :required="!sameAddress">
             </div>
           </div>
         </div>
@@ -95,11 +116,13 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
+import bcrypt from 'bcryptjs';
 
 const sameAddress = ref(true);
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
+const suggestions = ref([]); // Stocke les résultats de l'API Gouv
 
 const form = reactive({
   nom: '',
@@ -117,16 +140,43 @@ const form = reactive({
   pays: 'France'
 });
 
-const handleRegistration = async () => {
-  // Sécurité pour éviter les clics frénétiques
-  if (loading.value) return;
+// --- LOGIQUE AUTOCOMPLÉTION ---
+const onAddressInput = async (query) => {
+  if (!query || query.length < 4) {
+    suggestions.value = [];
+    return;
+  }
+  try {
+    const response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=5`);
+    const data = await response.json();
+    suggestions.value = data.features;
+  } catch (err) {
+    console.error("Erreur suggestions:", err);
+  }
+};
 
+const selectAdresse = (feature, type) => {
+  if (type === 'facturation') {
+    form.rueFacturation = feature.properties.name;
+    form.cpFacturation = feature.properties.postcode;
+    form.villeFacturation = feature.properties.city;
+  } else {
+    form.rueLivraison = feature.properties.name;
+    form.cpLivraison = feature.properties.postcode;
+    form.villeLivraison = feature.properties.city;
+  }
+  suggestions.value = []; 
+};
+
+// --- LOGIQUE INSCRIPTION ---
+const handleRegistration = async () => {
+  if (loading.value) return;
   loading.value = true;
-  feedback.value = "Phase 1 : Enregistrement de l'adresse de facturation...";
+  feedback.value = ""; // On vide au départ
   isError.value = false;
 
   try {
-    // --- PHASE 1 : CRÉATION ADRESSE DE FACTURATION ---
+    // PHASE 1 : ADRESSE FACTURATION
     const resAddr = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -138,26 +188,25 @@ const handleRegistration = async () => {
         pays: "France"
       })
     });
-
-    if (!resAddr.ok) throw new Error("Erreur lors de la création de l'adresse de facturation.");
+    if (!resAddr.ok) throw new Error("Erreur lors de la création de l'adresse.");
     const adrFactData = await resAddr.json();
-    const idAdFacturation = adrFactData.idAdresse;
 
-    // --- PHASE 2 : CRÉATION DU COMPTE CLIENT ---
-    feedback.value = "Phase 2 : Création de votre profil...";
-    
+    // PHASE 2 : CLIENT
+    const salt = bcrypt.genSaltSync(10);
+    const hashedMdp = bcrypt.hashSync(form.password, salt);
+    const dateISO = new Date().toISOString().split('T')[0];
+
     const clientPayload = {
       idClient: 0,
-      idAdresseFacturation: idAdFacturation,
+      idAdresseFacturation: adrFactData.idAdresse,
       nomClient: form.nom.trim(),
       prenomClient: form.prenomClient.trim(),
       emailClient: form.email.trim(),
-      mdp: form.password,
-      tel: String(form.telephone || ""),
-      dateInscription: new Date().toISOString().split('T')[0],
-      dateNaissance: form.dateNaissance, // Format YYYY-MM-DD via l'input date
-      role: "client",
-      client: null // Champ parfois requis par ton API
+      mdp: hashedMdp,
+      tel: String(form.telephone || "").replace(/\s/g, "").substring(0, 10),
+      dateInscription: dateISO, 
+      dateNaissance: form.dateNaissance,
+      role: "client"
     };
 
     const resClient = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient', {
@@ -165,20 +214,12 @@ const handleRegistration = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clientPayload)
     });
-
-    if (!resClient.ok) {
-      const errorTxt = await resClient.text();
-      throw new Error(`Erreur Client : ${errorTxt || 'Vérifiez si l\'email existe déjà'}`);
-    }
-
+    if (!resClient.ok) throw new Error("L'email est déjà utilisé ou les données sont invalides.");
     const clientData = await resClient.json();
-    const idClient = clientData.idClient; 
 
-    // --- PHASE 3 : GESTION DE L'ADRESSE DE LIVRAISON (PHYSIQUE) ---
-    let idAdLivraisonFinal = idAdFacturation;
-
+    // PHASE 3 : ADRESSE LIVRAISON
+    let adrLivFinalData = adrFactData;
     if (!sameAddress.value) {
-      feedback.value = "Phase 3 : Enregistrement de l'adresse de livraison...";
       const resAddrLiv = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -190,43 +231,34 @@ const handleRegistration = async () => {
           pays: "France"
         })
       });
-      
-      if (resAddrLiv.ok) {
-        const adrLivData = await resAddrLiv.json();
-        idAdLivraisonFinal = adrLivData.idAdresse;
-      }
+      if (resAddrLiv.ok) adrLivFinalData = await resAddrLiv.json();
     }
 
-    // --- PHASE 4 : LIAISON DANS LA TABLE ADRESSELIVRAISON ---
-    feedback.value = "Phase 4 : Finalisation des préférences...";
+    // PHASE 4 : LIAISON
     const resLiaison = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        idClient: idClient,
-        idAdresse: idAdLivraisonFinal,
-        nomDestinataire: form.nom,
-        prenomDestinataire: form.prenomClient
+        idClient: clientData.idClient,
+        idAdresse: adrLivFinalData.idAdresse,
+        nomDestinataire: form.nom.trim(),
+        prenomDestinataire: form.prenomClient.trim()
       })
     });
 
-    if (!resLiaison.ok) {
-      console.warn("La liaison de livraison a échoué, mais le compte est créé.");
+    // SEUL FEEDBACK CONSERVÉ : LE SUCCÈS FINAL
+    if (resLiaison.ok) {
+      isError.value = false;
+      feedback.value = "COMPTE CRÉÉ AVEC SUCCÈS !";
+      
+      // Optionnel : Réinitialiser le formulaire après 2 secondes
+      //setTimeout(() => { Object.assign(form, initialFormState); feedback.value = ""; }, 2000);
     }
 
-    // SUCCÈS TOTAL
-    isError.value = false;
-    feedback.value = "INSCRIPTION RÉUSSIE AVEC SUCCÈS !";
-    
-    // Optionnel : Réinitialiser le formulaire ici si tu le souhaites
-
   } catch (err) {
-    console.error("ERREUR INSCRIPTION:", err);
+    // On garde les feedbacks d'erreurs car ils sont nécessaires
     isError.value = true;
-    // Gestion du cas où Azure crash sans réponse (NetworkError)
-    feedback.value = (err instanceof TypeError) 
-      ? "Erreur réseau : Le serveur a crashé (vérifiez les dates ou l'email)." 
-      : err.message;
+    feedback.value = err.message;
   } finally {
     loading.value = false;
   }
@@ -257,6 +289,37 @@ const handleRegistration = async () => {
   padding: 40px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.1);
   border-top: 5px solid #000;
+}
+
+/* NOUVEAU : Style pour les suggestions d'adresse */
+.address-suggestions {
+  position: absolute;
+  z-index: 1000;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-top: none;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.address-suggestions li {
+  padding: 12px;
+  cursor: pointer;
+  font-size: 11px;
+  border-bottom: 1px solid #f0f0f0;
+  text-transform: uppercase;
+}
+
+.address-suggestions li:hover {
+  background-color: #f9f9f9;
+  color: #00a8e8;
 }
 
 .card-header h1 {
@@ -301,12 +364,6 @@ input {
   box-sizing: border-box;
   outline: none;
   background: #fcfcfc;
-}
-
-/* Style spécifique pour l'input date pour qu'il garde la police */
-input[type="date"] {
-  font-family: 'CubeFont', sans-serif;
-  text-transform: uppercase;
 }
 
 input:focus {

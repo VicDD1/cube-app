@@ -29,7 +29,6 @@ const router = createRouter({
             path: '/velos',
             name: 'velos', 
             component: () => import('../views/ListArticle.vue'),
-           
             props: { title: 'Vélos Musculaires' }
         },
         {
@@ -44,6 +43,12 @@ const router = createRouter({
             name: 'visualize', 
             component: () => import('../views/VisualizeArticleView.vue'),
             props: true
+        },
+        {
+            path: '/panier',
+            name: 'CartView',
+            component: () => import('../views/CartView.vue'),
+           
         }
     ]
 })
