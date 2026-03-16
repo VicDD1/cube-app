@@ -230,7 +230,7 @@ const cancelClear = () => {
           {{ magasinChoisi ? magasinChoisi : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
         </a>
         <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
-        <button class="icon-btn"><User :size="20" :stroke-width="2" /></button>
+        <router-link to="/connexion" class="icon-btn"><User :size="20" :stroke-width="2" /></router-link>
         <div class="cart-container">
           <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
           <span class="cart-badge">0</span>
