@@ -1,80 +1,3 @@
-<template>
-  <div class="hero-slider">
-    
-    <div class="top-gradient"></div>
-
-    <transition-group name="fade" tag="div" class="slides-wrapper">
-      <div 
-        v-for="(slide, index) in slides" 
-        :key="index"
-        v-show="currentIndex === index"
-        class="slide"
-        :style="{ backgroundImage: `url(${slide.image})` }"
-      >
-        <div class="content">
-          
-          <div class="controls">
-            <button @click="prev" class="arrow-btn">❮</button>
-            <button @click="next" class="arrow-btn">❯</button>
-          </div>
-
-          <p class="tag">{{ slide.tag }}</p>
-          
-          <h1 class="main-title">
-            <span class="solid">{{ slide.titleSolid }}</span><br>
-            <span class="outline">{{ slide.titleOutline }}</span>
-          </h1>
-          
-          <p class="desc">{{ slide.desc }}</p>
-          
-          <a href="#" class="action-link">
-            <span class="triangle">▶</span> {{ slide.linkText }}
-          </a>
-          
-        </div>
-      </div>
-    </transition-group>
-
-  </div>
-
-  <section class="trust-bar">
-    <h2 class="trust-title">ACHETEZ L’ESPRIT TRANQUILLE</h2>
-    
-    <div class="trust-items">
-      <div class="trust-item">
-        <Store :size="30" />
-        <div class="trust-text">
-          <p class="highlight">LIVRABLE EN MAGASIN</p>
-          <p class="sub">Gratuit dès 50 € d'achats</p>
-        </div>
-      </div>
-
-      <div class="trust-item">
-        <Truck :size="30" />
-        <div class="trust-text">
-          <p class="bold">LIVRAISON À DOMICILE</p>
-          <p class="sub">Gratuit dès 100 € d'achats</p>
-        </div>
-      </div>
-
-      <div class="trust-item">
-        <ShieldCheck :size="30" />
-        <div class="trust-text">
-          <p class="bold">PAIEMENT SÉCURISÉ</p>
-        </div>
-      </div>
-
-      <div class="trust-item">
-        <Headset :size="30" />
-        <div class="trust-text">
-          <p class="bold">SERVICE CLIENT EN LIGNE</p>
-          <p class="sub">du lundi au vendredi 9h-18h</p>
-        </div>
-      </div>
-    </div>
-  </section>
-</template>
-
 <script setup>
 import { ref } from 'vue'
 
@@ -121,6 +44,85 @@ const prev = () => {
   currentIndex.value = (currentIndex.value - 1 + slides.length) % slides.length
 }
 </script>
+
+<template>
+  <div>
+    <div class="hero-slider">
+      
+      <div class="top-gradient"></div>
+
+      <transition-group name="fade" tag="div" class="slides-wrapper">
+        <div 
+          v-for="(slide, index) in slides" 
+          :key="index"
+          v-show="currentIndex === index"
+          class="slide"
+          :style="{ backgroundImage: `url(${slide.image})` }"
+        >
+          <div class="content">
+            
+            <div class="controls">
+              <button @click="prev" class="arrow-btn">❮</button>
+              <button @click="next" class="arrow-btn">❯</button>
+            </div>
+
+            <p class="tag">{{ slide.tag }}</p>
+            
+            <h1 class="main-title">
+              <span class="solid">{{ slide.titleSolid }}</span><br>
+              <span class="outline">{{ slide.titleOutline }}</span>
+            </h1>
+            
+            <p class="desc">{{ slide.desc }}</p>
+            
+            <a href="#" class="action-link">
+              <span class="triangle">▶</span> {{ slide.linkText }}
+            </a>
+            
+          </div>
+        </div>
+      </transition-group>
+
+    </div>
+
+    <section class="trust-bar">
+      <h2 class="trust-title">ACHETEZ L’ESPRIT TRANQUILLE</h2>
+      
+      <div class="trust-items">
+        <div class="trust-item">
+          <Store :size="30" />
+          <div class="trust-text">
+            <p class="highlight">LIVRABLE EN MAGASIN</p>
+            <p class="sub">Gratuit dès 50 € d'achats</p>
+          </div>
+        </div>
+
+        <div class="trust-item">
+          <Truck :size="30" />
+          <div class="trust-text">
+            <p class="bold">LIVRAISON À DOMICILE</p>
+            <p class="sub">Gratuit dès 100 € d'achats</p>
+          </div>
+        </div>
+
+        <div class="trust-item">
+          <ShieldCheck :size="30" />
+          <div class="trust-text">
+            <p class="bold">PAIEMENT SÉCURISÉ</p>
+          </div>
+        </div>
+
+        <div class="trust-item">
+          <Headset :size="30" />
+          <div class="trust-text">
+            <p class="bold">SERVICE CLIENT EN LIGNE</p>
+            <p class="sub">du lundi au vendredi 9h-18h</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</template>
 
 <style scoped>
 /* Conteneur principal qui prend tout l'écran */
