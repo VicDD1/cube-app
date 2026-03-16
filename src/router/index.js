@@ -15,9 +15,9 @@ const router = createRouter({
             component: () => import('../views/ProductsView.vue')
         },
         {
-            path: '/connexion',
-            name: 'connexion',
-            component: () => import('../views/ConnexionView.vue')
+            path: '/creer-compte',
+            name: 'creer-compte',
+            component: () => import('../views/CreerCompteView.vue')
         },
         {
             path: '/velos-electriques',
@@ -45,10 +45,19 @@ const router = createRouter({
             props: true
         },
         {
+            path: '/login', // <--- Correction ici (deux 'n')
+            name: 'login',
+            component: () => import('../views/ConnexionView.vue') // <--- On pointe vers la vue de connexion    
+        },
+        {
+            path: '/connexion',
+            name: 'connexion-choice',
+            component: () => import('../views/AuthChoiceView.vue')
+        },
+        {
             path: '/panier',
             name: 'CartView',
             component: () => import('../views/CartView.vue'),
-           
         }
     ]
 })
