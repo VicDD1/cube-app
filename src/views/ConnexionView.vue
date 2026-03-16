@@ -118,15 +118,19 @@ const form = reactive({
 });
 
 const handleRegistration = async () => {
-  // Sécurité pour éviter les clics frénétiques
   if (loading.value) return;
 
   loading.value = true;
-  feedback.value = "Phase 1 : Enregistrement de l'adresse de facturation...";
+  feedback.value = "Création du compte en cours...";
   isError.value = false;
 
+  // Initialisation des variables pour qu'elles soient accessibles dans toute la fonction
+  let adrFactData = null;
+  let clientData = null;
+  let adrLivFinalData = null;
+
   try {
-    // --- PHASE 1 : CRÉATION ADRESSE DE FACTURATION ---
+    // --- PHASE 1 : ADRESSE DE FACTURATION ---
     const resAddr = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -138,26 +142,22 @@ const handleRegistration = async () => {
         pays: "France"
       })
     });
-
     if (!resAddr.ok) throw new Error("Erreur lors de la création de l'adresse de facturation.");
-    const adrFactData = await resAddr.json();
-    const idAdFacturation = adrFactData.idAdresse;
+    adrFactData = await resAddr.json();
 
-    // --- PHASE 2 : CRÉATION DU COMPTE CLIENT ---
-    feedback.value = "Phase 2 : Création de votre profil...";
-    
+    // --- PHASE 2 : CLIENT ---
     const clientPayload = {
       idClient: 0,
-      idAdresseFacturation: idAdFacturation,
+      idAdresseFacturation: adrFactData.idAdresse,
       nomClient: form.nom.trim(),
       prenomClient: form.prenomClient.trim(),
       emailClient: form.email.trim(),
       mdp: form.password,
-      tel: String(form.telephone || ""),
+      // Nettoyage téléphone (10 chiffres sans espace pour le SQL)
+      tel: String(form.telephone || "").replace(/\s/g, ""), 
       dateInscription: new Date().toISOString().split('T')[0],
-      dateNaissance: form.dateNaissance, // Format YYYY-MM-DD via l'input date
-      role: "client",
-      client: null // Champ parfois requis par ton API
+      dateNaissance: form.dateNaissance,
+      role: "client"
     };
 
     const resClient = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient', {
@@ -165,20 +165,14 @@ const handleRegistration = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clientPayload)
     });
+    if (!resClient.ok) throw new Error("Erreur profil : l'email est peut-être déjà utilisé.");
+    clientData = await resClient.json();
 
-    if (!resClient.ok) {
-      const errorTxt = await resClient.text();
-      throw new Error(`Erreur Client : ${errorTxt || 'Vérifiez si l\'email existe déjà'}`);
-    }
-
-    const clientData = await resClient.json();
-    const idClient = clientData.idClient; 
-
-    // --- PHASE 3 : GESTION DE L'ADRESSE DE LIVRAISON (PHYSIQUE) ---
-    let idAdLivraisonFinal = idAdFacturation;
+    // --- PHASE 3 : ADRESSE DE LIVRAISON ---
+    adrLivFinalData = adrFactData; // Par défaut, c'est la même
 
     if (!sameAddress.value) {
-      feedback.value = "Phase 3 : Enregistrement de l'adresse de livraison...";
+      feedback.value = "Création de l'adresse de livraison...";
       const resAddrLiv = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -190,43 +184,59 @@ const handleRegistration = async () => {
           pays: "France"
         })
       });
-      
       if (resAddrLiv.ok) {
-        const adrLivData = await resAddrLiv.json();
-        idAdLivraisonFinal = adrLivData.idAdresse;
+        adrLivFinalData = await resAddrLiv.json();
       }
     }
 
-    // --- PHASE 4 : LIAISON DANS LA TABLE ADRESSELIVRAISON ---
-    feedback.value = "Phase 4 : Finalisation des préférences...";
-    const resLiaison = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        idClient: idClient,
-        idAdresse: idAdLivraisonFinal,
-        nomDestinataire: form.nom,
-        prenomDestinataire: form.prenomClient
-      })
-    });
+// --- PHASE 4 : LIAISON (PAYLOAD AVEC VALIDATION ROLE) ---
+feedback.value = "Finalisation de la liaison livraison...";
 
-    if (!resLiaison.ok) {
-      console.warn("La liaison de livraison a échoué, mais le compte est créé.");
-    }
+const adresseLivraisonPayload = {
+  idClient: parseInt(clientData.idClient),
+  idAdresse: parseInt(adrLivFinalData.idAdresse),
+  nomDestinataire: form.nom.trim(),
+  prenomDestinataire: form.prenomClient.trim(),
+  
+  // L'API exige ces objets pour la validation, et le Role est requis
+  idClientNavigation: {
+    idClient: parseInt(clientData.idClient),
+    role: "client" // <--- Indispensable pour éviter la 400
+  },
+  idAdresseNavigation: {
+    idAdresse: parseInt(adrLivFinalData.idAdresse)
+  }
+};
 
-    // SUCCÈS TOTAL
+try {
+  const resLiaison = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(adresseLivraisonPayload)
+  });
+
+  if (resLiaison.ok) {
+    isError.value = false;
+    feedback.value = "INSCRIPTION RÉUSSIE AVEC LIAISON !";
+  } else {
+    const errorData = await resLiaison.json();
+    console.error("Détails des erreurs de validation:", errorData.errors);
+    throw new Error("Erreur de validation lors de la liaison.");
+  }
+} catch (err) {
+  console.warn("Liaison impossible, mais les données de base sont en SQL.");
+  isError.value = false; // On laisse en succès car le compte client existe
+  feedback.value = "Inscription terminée (Liaison livraison à vérifier).";
+}
+
+    // SUCCÈS : On arrive ici si les phases 1 et 2 ont réussi
     isError.value = false;
     feedback.value = "INSCRIPTION RÉUSSIE AVEC SUCCÈS !";
-    
-    // Optionnel : Réinitialiser le formulaire ici si tu le souhaites
 
   } catch (err) {
-    console.error("ERREUR INSCRIPTION:", err);
+    console.error("ERREUR:", err);
     isError.value = true;
-    // Gestion du cas où Azure crash sans réponse (NetworkError)
-    feedback.value = (err instanceof TypeError) 
-      ? "Erreur réseau : Le serveur a crashé (vérifiez les dates ou l'email)." 
-      : err.message;
+    feedback.value = err.message;
   } finally {
     loading.value = false;
   }
