@@ -126,9 +126,7 @@ onMounted(fetchCart)
 </template>
 
 <style scoped>
-.cart-page { max-width: 1400px; margin: 120px auto; padding: 0 40px; font-family: 'Inter', sans-serif; 
-
-margin-top: 8%;}
+.cart-page { max-width: 1400px; margin: 120px auto; padding: 0 40px; font-family: 'Inter', sans-serif; margin-top: 10%;}
 .cart-title { font-size: 3rem; font-weight: 900; font-style: italic; margin-bottom: 50px; }
 .cart-title span { color: #888; font-style: normal; }
 
