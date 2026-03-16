@@ -3,9 +3,11 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Store, Search, User, ShoppingCart } from 'lucide-vue-next'
 import StoreLocator from './StoreLocator.vue'
+import { useAppStore } from '../stores/useStore'
 
 const baseUrl = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net'
 const router = useRouter()
+const appStore = useAppStore()
 
 const navigationLinks = [
   { id: 'velos', label: 'VÉLOS', url: '/velos' },
@@ -31,11 +33,9 @@ const openStoreLocator = () => {
 }
 
 const handleStoreSelection = (magasin) => {
-  console.log("Le Header a bien reçu le magasin :", magasin)
-  magasinChoisi.value = magasin.nomAffiche
-  // Tu pourras sauvegarder l'ID du magasin dans un store Pinia ou le localStorage ici plus tard
+  console.log("Global Store mis à jour avec :", magasin)
+  appStore.setMagasin(magasin) 
 }
-// --------------------------
 
 const getId = (item) => item.idCategorieAccessoire || item.idCategorie || item.IdCategorie || item.IDCATEGORIE || item.idModele || item.IdModele || item.reference || item.Reference || item.id || Math.random()
 const getName = (item) => item.nomCategorieAccessoire || item.nomCategorie || item.NomCategorie || item.NOMCATEGORIE || item.nomModele || item.NomModele || item.nom || item.Nom || 'Inconnu'
@@ -227,7 +227,8 @@ const cancelClear = () => {
 
       <div class="nav-actions">
         <a href="#" class="shop-link" @click.prevent="openStoreLocator">
-          {{ magasinChoisi ? magasinChoisi : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
+          {{ appStore.magasinChoisi ? appStore.magasinChoisi.nomAffiche : 'CHOISIR UN MAGASIN' }} 
+          <Store :size="18" :stroke-width="2" />
         </a>
         <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
         <router-link to="/connexion" class="icon-btn"><User :size="20" :stroke-width="2" /></router-link>
