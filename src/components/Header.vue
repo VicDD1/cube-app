@@ -264,17 +264,26 @@ const cancelClear = () => {
       </nav>
 
       <div class="nav-actions">
-        <a href="#" class="shop-link" @click.prevent="openStoreLocator">
-          {{ magasinChoisi ? magasinChoisi : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
-        </a>
-        <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
-        <router-link to="/connexion" class="icon-btn"><User :size="20" :stroke-width="2" /></router-link>
-        <div class="cart-container">
-          <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
-          <span class="cart-badge">0</span>
-        </div>
-      </div>
+          <a href="#" class="shop-link" @click.prevent="openStoreLocator">
+            {{ magasinChoisi ? magasinChoisi : 'CHOISIR UN MAGASIN' }} 
+            <Store :size="18" :stroke-width="2" />
+          </a>
 
+          <button class="icon-btn">
+            <Search :size="20" :stroke-width="2" />
+          </button>
+
+          <router-link to="/connexion" class="icon-btn">
+            <User :size="20" :stroke-width="2" />
+          </router-link>
+
+          <div class="cart-container">
+            <router-link to="/panier" class="icon-btn">
+              <ShoppingCart :size="20" :stroke-width="2" />
+              <span v-if="cartCount > 0" class="cart-badge">{{ cartCount }}</span>
+            </router-link>
+          </div>
+        </div>
     </div>
   </header>
 

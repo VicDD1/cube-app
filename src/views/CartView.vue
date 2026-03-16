@@ -71,7 +71,7 @@ onMounted(fetchCart)
 
 <template>
   <div class="cart-page">
-    <h1 class="cart-title">VOTRE PANIER <span>[{{ cart?.lignePaniers?.length || 0 }}]</span></h1>
+    <h1 class="cart-title">VOTRE PANIER : <span>{{ cart?.lignePaniers?.length || 0 }}</span> article(s)</h1>
 
     <div v-if="loading" class="loader">Chargement...</div>
 
@@ -126,7 +126,9 @@ onMounted(fetchCart)
 </template>
 
 <style scoped>
-.cart-page { max-width: 1400px; margin: 120px auto; padding: 0 40px; font-family: 'Inter', sans-serif; }
+.cart-page { max-width: 1400px; margin: 120px auto; padding: 0 40px; font-family: 'Inter', sans-serif; 
+
+margin-top: 8%;}
 .cart-title { font-size: 3rem; font-weight: 900; font-style: italic; margin-bottom: 50px; }
 .cart-title span { color: #888; font-style: normal; }
 

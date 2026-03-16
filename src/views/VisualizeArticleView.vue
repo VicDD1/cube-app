@@ -1,113 +1,166 @@
-  <script setup>
-  import { onMounted, ref, computed } from 'vue'
-  import { useRoute } from 'vue-router'
+<script setup>
+import { onMounted, ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 
-  const route = useRoute()
-  const reference = route.params.id?.trim()
-  const article = ref(null)
-  const loading = ref(true)
+const route = useRoute()
+const reference = route.params.id?.trim()
+const article = ref(null)
+const loading = ref(true)
+const selectedImage = ref('')
 
-  // L'image actuellement affichée en grand
-  const selectedImage = ref('')
+// Configuration API
+const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 
-  const isVelo = computed(() => reference?.length === 6)
-  const folder = computed(() => isVelo.value ? 'VELOS' : 'ACCESSOIRES')
+const isVelo = computed(() => reference?.length === 6)
+const folder = computed(() => isVelo.value ? 'VELOS' : 'ACCESSOIRES')
 
-  // Fonction pour générer le chemin local (image_1, image_2, etc.)
-  const getLocalImage = (ref, index = 1) => {
-    try {
-      return new URL(`../assets/images/${folder.value}/${ref}/image_${index}.webp`, import.meta.url).href
-    } catch (e) {
-      return 'https://via.placeholder.com/600x400?text=Image+Manquante'
-    }
+const getLocalImage = (ref, index = 1) => {
+  try {
+    return new URL(`../assets/images/${folder.value}/${ref}/image_${index}.webp`, import.meta.url).href
+  } catch (e) {
+    return 'https://via.placeholder.com/600x400?text=Image+Manquante'
+  }
+}
+
+const fetchDetails = async () => {
+  loading.value = true
+  try {
+    const endpoint = isVelo.value ? 'VarianteVelo/GetFullDetails' : 'Accessoire/GetDetails'
+    const response = await fetch(`${API_BASE}/${endpoint}/${reference}`)
+    if (!response.ok) throw new Error("Produit introuvable.")
+    article.value = await response.json()
+    selectedImage.value = getLocalImage(reference, 1)
+  } catch (err) {
+    console.error("Erreur chargement:", err)
+  } finally {
+    loading.value = false
+  }
+}
+
+// --- LOGIQUE PANIER ---
+const addToCart = async () => {
+  // On récupère l'ID client depuis le storage (null si pas connecté)
+  const idClient = localStorage.getItem('userId') 
+  
+  const itemData = {
+    reference: reference,
+    quantiteSelectionnee: 1,
+    tailleSelectionnee: "Unique", // À dynamiser si tu as un sélecteur de taille
+    prixUnitaire: article.value.prix,
+    nomArticle: article.value.nomArticle // Utile pour l'affichage hors-ligne
   }
 
-  const fetchDetails = async () => {
-    loading.value = true
+  if (idClient) {
+    // CAS CONNECTÉ : API
     try {
-      const endpoint = isVelo.value ? 'VarianteVelo/GetFullDetails' : 'Accessoire/GetDetails'
-      const url = `https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/${endpoint}/${reference}`
+      // 1. Récupérer le panier actif
+      const cartRes = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient}`)
+      if (!cartRes.ok) throw new Error("Impossible de trouver un panier actif")
+      const cart = await cartRes.json()
 
-      const response = await fetch(url)
-      if (!response.ok) throw new Error("Produit introuvable.")
-      
-      article.value = await response.json()
-      
-      // Par défaut, on affiche l'image_1 de ton dossier local
-      selectedImage.value = getLocalImage(reference, 1)
+      // 2. Poster la ligne
+      const postRes = await fetch(`${API_BASE}/LignePanier/PostLignePanier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idPanier: cart.idPanier,
+          ...itemData
+        })
+      })
 
+      if (postRes.ok) alert("Ajouté à votre compte !")
     } catch (err) {
-      console.error("Erreur chargement:", err)
-    } finally {
-      loading.value = false
+      console.error("Erreur API Panier:", err)
     }
+  } else {
+    // CAS ANONYME : LocalStorage
+    let localCart = JSON.parse(localStorage.getItem('guestCart') || '[]')
+    
+    const existingItem = localCart.find(i => i.reference === reference)
+    if (existingItem) {
+      existingItem.quantiteSelectionnee++
+    } else {
+      localCart.push(itemData)
+    }
+    
+    localStorage.setItem('guestCart', JSON.stringify(localCart))
+    alert("Ajouté au panier (mode invité) !")
   }
+}
 
-  onMounted(fetchDetails)
-  </script>
+onMounted(fetchDetails)
+</script>
 
-  <template>
-    <div class="visualize-page" v-if="article">
-      <div class="product-layout">
-        
-        <div class="gallery-container">
-          <div class="main-image-wrapper">
-            <img :src="selectedImage" class="main-view" />
-          </div>
-          
-          <div class="thumbnails">
-            <img 
-              v-for="i in 4" 
-              :key="i"
-              :src="getLocalImage(reference, i)"
-              @click="selectedImage = getLocalImage(reference, i)"
-              :class="{ active: selectedImage === getLocalImage(reference, i) }"
-              @error="(e) => e.target.style.display = 'none'" 
-            />
-          </div>
+<template>
+  <div class="visualize-page" v-if="article">
+    <div class="product-layout">
+      <div class="gallery-container">
+        <div class="main-image-wrapper">
+          <img :src="selectedImage" class="main-view" />
         </div>
-
-        <div class="details-container">
-          <p class="brand-path">CUBE / {{ folder }}</p>
-          <h1 class="product-title">{{ article.nomArticle }}</h1>
-          <p class="price-tag">{{ article.prix?.toLocaleString() }} €</p>
-
-          <div class="description-box">
-            <h3>Résumé</h3>
-            <p>{{ article.idResumeNavigation?.contenuResume }}</p>
-          </div>
-
-          <div class="specs-table">
-            <h3>Fiche Technique</h3>
-            
-            <div class="spec-row" v-if="isVelo">
-              <span class="spec-label">Matériau</span>
-              <span class="spec-value">{{ article.idModeleNavigation?.materiauCadre }}</span>
-            </div>
-
-            <div class="spec-row" v-if="article.poids">
-              <span class="spec-label">Poids</span>
-              <span class="spec-value">{{ article.poids }} kg</span>
-            </div>
-
-            <div class="spec-row" v-if="article.idCouleurNavigation">
-              <span class="spec-label">Couleur</span>
-              <span class="spec-value">{{ article.idCouleurNavigation.nomCouleur.trim() }}</span>
-            </div>
-            
-            <div class="spec-row" v-if="!isVelo && article.materiau">
-              <span class="spec-label">Composant</span>
-              <span class="spec-value">{{ article.materiau }}</span>
-            </div>
-          </div>
-
-          <button class="buy-btn">AJOUTER AU PANIER</button>
+        <div class="thumbnails">
+          <img 
+            v-for="i in 4" :key="i"
+            :src="getLocalImage(reference, i)"
+            @click="selectedImage = getLocalImage(reference, i)"
+            :class="{ active: selectedImage === getLocalImage(reference, i) }"
+            @error="(e) => e.target.style.display = 'none'" 
+          />
         </div>
       </div>
-    </div>
-  </template>
 
-  <style scoped>
+      <div class="details-container">
+        <p class="brand-path">CUBE / {{ folder }}</p>
+        <h1 class="product-title">{{ article.nomArticle }}</h1>
+        <p class="price-tag">{{ article.prix?.toLocaleString() }} €</p>
+
+        <div class="description-box">
+          <h3>Résumé</h3>
+          <p>{{ article.idResumeNavigation?.contenuResume }}</p>
+        </div>
+
+        <div class="specs-table">
+          <h3>Fiche Technique</h3>
+          <div class="spec-row" v-if="isVelo">
+            <span class="spec-label">Matériau</span>
+            <span class="spec-value">{{ article.idModeleNavigation?.materiauCadre }}</span>
+          </div>
+          <div class="spec-row" v-if="article.poids">
+            <span class="spec-label">Poids</span>
+            <span class="spec-value">{{ article.poids }} kg</span>
+          </div>
+          <div class="spec-row" v-if="article.idCouleurNavigation">
+            <span class="spec-label">Couleur</span>
+            <span class="spec-value">{{ article.idCouleurNavigation.nomCouleur.trim() }}</span>
+          </div>
+        </div>
+
+        <button class="buy-btn" @click="addToCart">
+          AJOUTER AU PANIER
+        </button>
+      </div>
+    </div>
+  </div>
+  <div v-else-if="loading" class="loading">Chargement...</div>
+</template>
+
+<style scoped>
+/* Tes styles restent identiques, ils sont déjà très bien */
+.buy-btn { 
+  width: 100%; 
+  background: #000; 
+  color: #fff; 
+  border: none; 
+  padding: 25px; 
+  font-weight: 900; 
+  font-style: italic; 
+  font-size: 1.2rem; 
+  cursor: pointer; 
+  clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); 
+  margin-top: 40px; 
+  transition: 0.3s; 
+}
+.buy-btn:hover { background: #333; transform: scale(1.02); }
   /* (Styles identiques au précédent, avec un ajout pour masquer les miniatures manquantes) */
   .thumbnails img {
     width: 90px;
