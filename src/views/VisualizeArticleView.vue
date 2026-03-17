@@ -1,10 +1,11 @@
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import StoreLocator from '../components/StoreLocator.vue' // Vérifie le chemin
+import { useRoute, useRouter } from 'vue-router' // <-- Import ajouté ici
+import StoreLocator from '../components/StoreLocator.vue'
 import { useAppStore } from '../stores/useStore'
 
 const route = useRoute()
+const router = useRouter() // <-- Initialisation ajoutée ici
 const appStore = useAppStore()
 
 // On utilise une ref pour la référence pour qu'elle soit réactive au changement de couleur
@@ -14,6 +15,8 @@ const caracteristiques = ref([])
 const inventaire = ref([])
 const variantesCouleurs = ref([])
 const loading = ref(true)
+const idClient = ref(1); // À synchroniser plus tard avec ton système de login
+const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api';
 
 const currentImgIndex = ref(1)
 const isVelo = computed(() => reference.value?.length === 6)
@@ -101,13 +104,40 @@ const selectTaille = (item) => {
 }
 
 const storeButtonText = computed(() => {
-  // Si aucun magasin n'est dans le store Pinia
   if (!appStore.magasinChoisi) {
     return '» AJOUTER UN MAGASIN';
   }
-  // Si un magasin est choisi mais qu'on veut en changer
   return '» CHANGER DE MAGASIN';
 })
+
+
+const addToCart = async () => {
+  if (!selectedTaille.value) return;
+
+  const payload = {
+    idPanier: 0, 
+    idClient: idClient.value, 
+    reference: reference.value,
+    tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
+    quantiteSelectionnee: 1,
+    prixUnitaire: article.value.prix
+  };
+
+  try {
+    const response = await fetch(`${API_BASE}/LignePanier/PostLignePanier`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      // <-- Redirection activée vers le panier au top !
+      router.push({ name: 'cart' }); 
+    }
+  } catch (err) {
+    console.error("Erreur ajout panier:", err);
+  }
+};
 
 // --- ACCORDÉONS ---
 const activeSection = ref('TECH')
@@ -142,16 +172,13 @@ const fetchData = async () => {
     const [resDetail, resCarac, resInv] = await Promise.all([
       fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/${endpoint}/${cleanRef}`),
       fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ACaracteristique/GetByArticle/${cleanRef}`),
-      // ON CHANGE CETTE URL ICI :
       fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Articles/GetStock/${cleanRef}`)
     ])
 
     article.value = await resDetail.json()
     caracteristiques.value = await resCarac.json()
     
-    // On récupère les données de l'API Articles/GetStock
     const stockData = await resInv.json()
-    // On injecte les inventaires complets dans notre variable
     inventaire.value = stockData.articleInventaires 
 
     if (isVelo.value && article.value?.idModele) {
@@ -172,7 +199,6 @@ const fetchData = async () => {
   }
 }
 
-// Watch pour recharger si on clique sur une pastille de couleur (change l'ID dans l'URL)
 watch(reference, () => {
     fetchData();
     currentImgIndex.value = 1;
@@ -343,7 +369,11 @@ onMounted(fetchData)
         </div>
 
         <div class="actions-area">
-          <button v-if="selectedTaille && appStore.magasinChoisi && isAvailableOnline" class="btn-black">
+          <button 
+            v-if="selectedTaille && appStore.magasinChoisi && isAvailableOnline" 
+            class="btn-black"
+            @click="addToCart"
+          >
             » AJOUTER AU PANIER
           </button>
 
