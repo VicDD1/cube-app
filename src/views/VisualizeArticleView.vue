@@ -1,13 +1,11 @@
 <script setup>
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import StoreLocator from '../components/StoreLocator.vue' // Vérifie le chemin
 import { useAppStore } from '../stores/useStore'
 
 const route = useRoute()
 const appStore = useAppStore()
 
-// On utilise une ref pour la référence pour qu'elle soit réactive au changement de couleur
 const reference = computed(() => route.params.id?.trim())
 const article = ref(null)
 const caracteristiques = ref([])
@@ -54,24 +52,16 @@ const prevImage = () => {
   else currentImgIndex.value = 4
 }
 
-const storeLocatorRef = ref(null)
-
+// 🔴 MODIFIÉ : On déclenche un événement personnalisé pour dire au Header d'ouvrir son StoreLocator
 const openStoreLocator = () => {
-  storeLocatorRef.value?.toggle()
-}
-
-const handleStoreSelection = (magasin) => {
-  console.log("Magasin sélectionné depuis la page article :", magasin)
-  appStore.setMagasin(magasin) 
+  window.dispatchEvent(new CustomEvent('open-store-locator'))
 }
 
 // --- GESTION ACHAT ---
 const selectedTaille = ref(null)
 
-// 1. Stock en ligne (pour le bouton Ajouter au panier)
 const isAvailableOnline = computed(() => (selectedTaille.value?.quantiteStockEnLigne || 0) > 0)
 
-// 2. Stock dans le magasin ACTUEL (choisi via Pinia)
 const isAvailableInCurrentStore = computed(() => {
   if (!selectedTaille.value || !appStore.magasinChoisi || !selectedTaille.value.inventaireMagasins) return false
   
@@ -81,7 +71,6 @@ const isAvailableInCurrentStore = computed(() => {
   return (stockMagasin?.quantiteStockMagasin || 0) > 0
 })
 
-// 3. Stock dans un AUTRE magasin (pour le point Orange/Jaune)
 const isAvailableInOtherStores = computed(() => {
   if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
   
@@ -90,7 +79,6 @@ const isAvailableInOtherStores = computed(() => {
   )
 })
 
-// 4. Stock global magasin
 const isAvailableInAnyStore = computed(() => {
   if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
   return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0)
@@ -101,12 +89,8 @@ const selectTaille = (item) => {
 }
 
 const storeButtonText = computed(() => {
-  // Si aucun magasin n'est dans le store Pinia
-  if (!appStore.magasinChoisi) {
-    return '» AJOUTER UN MAGASIN';
-  }
-  // Si un magasin est choisi mais qu'on veut en changer
-  return '» CHANGER DE MAGASIN';
+  if (!appStore.magasinChoisi) return '» AJOUTER UN MAGASIN'
+  return '» CHANGER DE MAGASIN'
 })
 
 // --- ACCORDÉONS ---
@@ -142,17 +126,17 @@ const fetchData = async () => {
     const [resDetail, resCarac, resInv] = await Promise.all([
       fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/${endpoint}/${cleanRef}`),
       fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ACaracteristique/GetByArticle/${cleanRef}`),
-      // ON CHANGE CETTE URL ICI :
       fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Articles/GetStock/${cleanRef}`)
     ])
 
     article.value = await resDetail.json()
     caracteristiques.value = await resCarac.json()
     
-    // On récupère les données de l'API Articles/GetStock
     const stockData = await resInv.json()
-    // On injecte les inventaires complets dans notre variable
     inventaire.value = stockData.articleInventaires 
+
+    // 🔴 LA LIGNE MAGIQUE : On envoie l'inventaire au store global !
+    appStore.setCurrentBikeInventory(inventaire.value)
 
     if (isVelo.value && article.value?.idModele) {
       const resModel = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Modele/GetDetails/${article.value.idModele}`)
@@ -185,6 +169,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.body.classList.remove('force-white-header')
+  // 🔴 On nettoie le store quand on quitte la page produit
+  appStore.setCurrentBikeInventory(null)
 })
 </script>
 
@@ -358,8 +344,6 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <StoreLocator ref="storeLocatorRef" @storeSelected="handleStoreSelection" />
-
         <div class="color-section" v-if="variantesCouleurs.length > 0">
           <h3 class="section-label">ÉGALEMENT DISPONIBLE EN</h3>
           <div class="color-grid">
@@ -398,23 +382,9 @@ onUnmounted(() => {
 .thumbnails-row img.active { border-color: #000; border-width: 2px; }
 
 /* Couleur de la colonne sélectionnée */
-.highlight-column {
-  background-color: rgba(0, 207, 232, 0.1) !important; /* Bleu très clair */
-  border-left: 1px solid rgba(0, 207, 232, 0.3);
-  border-right: 1px solid rgba(0, 207, 232, 0.3);
-  position: relative;
-}
-
-/* Optionnel : mettre le texte en gras dans la colonne active */
-th.highlight-column {
-  color: #00CFE8;
-  background-color: rgba(0, 207, 232, 0.15) !important;
-}
-
-/* Pour s'assurer que le survol fonctionne toujours bien */
-.geo-table tr:hover td.highlight-column {
-  background-color: rgba(0, 207, 232, 0.2) !important;
-}
+.highlight-column { background-color: rgba(0, 207, 232, 0.1) !important; border-left: 1px solid rgba(0, 207, 232, 0.3); border-right: 1px solid rgba(0, 207, 232, 0.3); position: relative; }
+th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) !important; }
+.geo-table tr:hover td.highlight-column { background-color: rgba(0, 207, 232, 0.2) !important; }
 
 /* Achat */
 .breadcrumb { font-size: 0.7rem; font-weight: 900; color: #999; }
@@ -437,9 +407,7 @@ th.highlight-column {
 .ok .dot { background: #7ED321; }
 .err .dot { background: #FF0000; }
 
-.availability-legend {
-  margin-bottom: 25px;
-}
+.availability-legend { margin-bottom: 25px; }
 
 .btn-black, .btn-white { width: 100%; padding: 20px; font-weight: 900; font-style: italic; cursor: pointer; border: none; margin-bottom: 10px; clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); }
 .btn-black { background: #000; color: #fff; margin-bottom: 25px;}
@@ -460,97 +428,28 @@ th.highlight-column {
 .loader { padding: 100px; text-align: center; font-weight: 900; }
 
 /* --- LAYOUT --- */
-.product-hero { 
-  display: grid; 
-  grid-template-columns: 1.6fr 1.2fr; /* Ajustement largeur */
-  gap: 0; /* On colle pour le fond gris */
-  background: #fff;
-}
-
+.product-hero { display: grid; grid-template-columns: 1.6fr 1.2fr; gap: 0; background: #fff; }
 .gallery-column { padding: 40px; }
-
-.purchase-column { 
-  background: #f2f2f2; /* FOND GRIS DEMANDÉ */
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-}
+.purchase-column { background: #f2f2f2; padding: 40px; display: flex; flex-direction: column; }
 
 /* --- BADGE SAISON --- */
-.saison-badge {
-  display: inline-block;
-  border: 1px solid #000;
-  padding: 5px 10px;
-  font-weight: 900;
-  font-size: 0.75rem;
-  width: fit-content;
-  margin-bottom: 20px;
-  background: #fff;
-}
+.saison-badge { display: inline-block; border: 1px solid #000; padding: 5px 10px; font-weight: 900; font-size: 0.75rem; width: fit-content; margin-bottom: 20px; background: #fff; }
 
 /* --- SECTION COULEURS --- */
 .color-section { padding-top: 20px; }
 .color-grid { display: flex; gap: 15px; margin-top: 10px; }
-
-.color-dot-wrapper {
-  padding: 3px;
-  border: 2px solid transparent;
-  border-radius: 50%;
-  display: flex;
-  transition: 0.2s;
-}
-
+.color-dot-wrapper { padding: 3px; border: 2px solid transparent; border-radius: 50%; display: flex; transition: 0.2s; }
 .color-dot-wrapper.active-color { border-color: #000; }
+.color-dot { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); cursor: pointer; display: block; }
 
-.color-dot {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(0,0,0,0.1);
-  cursor: pointer;
-  display: block;
-}
-
-.help-circle {
-  background: #00CFE8;
-  color: #fff;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-style: normal;
-  font-size: 0.7rem;
-  margin-left: 5px;
-  cursor: help;
-}
+.help-circle { background: #00CFE8; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 0.7rem; margin-left: 5px; cursor: help; }
 
 /* --- AJUSTEMENTS PRIX --- */
-.price-box {
-  margin: 30px 0;
-  border-top: 1px solid #ddd;
-  padding-top: 20px;
-}
-
-.dot { 
-  width: 10px; 
-  height: 10px; 
-  border-radius: 50%; 
-  background: #ccc; 
-  margin-right: 10px; 
-  display: inline-block;
-}
-
-/* Vert : Dispo Magasin Actuel */
+.price-box { margin: 30px 0; border-top: 1px solid #ddd; padding-top: 20px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 10px; display: inline-block; }
 .status-line.ok .dot { background: #7ED321 !important; }
-
-/* Orange/Jaune : Dispo Ailleurs uniquement */
 .status-line.warn .dot { background: #FFB300 !important; } 
-
-/* Rouge : Dispo nulle part */
 .status-line.err .dot { background: #FF0000 !important; }
-
 .status-line { display: flex; align-items: center; font-size: 0.85rem; margin: 6px 0; color: #000; font-weight: 600; }
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
@@ -566,21 +465,18 @@ body.force-white-header .cube-header .main-nav {
   border-bottom: 1px solid transparent !important;
 }
 
-/* On force les textes en noir */
 body.force-white-header .cube-header .main-link,
 body.force-white-header .cube-header .shop-link,
 body.force-white-header .cube-header .icon-btn {
   color: #000000 !important;
 }
 
-/* Mais on garde quand même ton bel effet bleu au survol ! */
 body.force-white-header .cube-header .main-link:hover,
 body.force-white-header .cube-header .shop-link:hover,
 body.force-white-header .cube-header .icon-btn:hover {
   color: #00a8e8 !important;
 }
 
-/* On force le logo en noir */
 body.force-white-header .cube-header .logo-img {
   filter: invert(100%) !important;
 }
