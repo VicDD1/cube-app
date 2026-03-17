@@ -205,7 +205,14 @@ watch(reference, () => {
     selectedTaille.value = null;
 })
 
-onMounted(fetchData)
+onMounted(() => {
+  document.body.classList.add('force-white-header')
+  fetchData()
+})
+
+onUnmounted(() => {
+  document.body.classList.remove('force-white-header')
+})
 </script>
 
 <template>
@@ -578,4 +585,34 @@ th.highlight-column {
 .status-line { display: flex; align-items: center; font-size: 0.85rem; margin: 6px 0; color: #000; font-weight: 600; }
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
+</style>
+
+<style>
+/* OVERRIDE GLOBAL DU HEADER
+  Ne s'active QUE sur cette page grâce à la classe sur le body !
+*/
+body.force-white-header .cube-header .main-nav {
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+  border-bottom: 1px solid transparent !important;
+}
+
+/* On force les textes en noir */
+body.force-white-header .cube-header .main-link,
+body.force-white-header .cube-header .shop-link,
+body.force-white-header .cube-header .icon-btn {
+  color: #000000 !important;
+}
+
+/* Mais on garde quand même ton bel effet bleu au survol ! */
+body.force-white-header .cube-header .main-link:hover,
+body.force-white-header .cube-header .shop-link:hover,
+body.force-white-header .cube-header .icon-btn:hover {
+  color: #00a8e8 !important;
+}
+
+/* On force le logo en noir */
+body.force-white-header .cube-header .logo-img {
+  filter: invert(100%) !important;
+}
 </style>

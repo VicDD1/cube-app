@@ -11,11 +11,20 @@
                 <label>ADRESSE EMAIL</label>
                 <input type="email" v-model="email" placeholder="NOM@EXEMPLE.COM" required>
             </div>
-            
-        <div class="field-group">
-            <label>MOT DE PASSE</label>
-            <input type="password" v-model="password" placeholder="••••••••" required>
-        </div>
+            <div class="field-group password-container">
+                <label>MOT DE PASSE</label>
+                <div class="input-wrapper">
+                    <input 
+                        :type="showPassword ? 'text' : 'password'" 
+                        v-model="password" 
+                        placeholder="••••••••" 
+                        required
+                    >
+                    <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
+                        {{ showPassword ? 'CACHER' : 'VOIR' }}
+                    </button>
+                </div>
+            </div>
             
         <transition name="fade">
             <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">
@@ -34,12 +43,14 @@
 import { ref } from 'vue';
 import { useAppStore } from '../stores/useStore';
 import { useRouter } from 'vue-router';
+import bcrypt from 'bcryptjs'; // Import crucial pour la comparaison
 
 const store = useAppStore();
 const router = useRouter();
 
 const email = ref('');
 const password = ref('');
+const showPassword = ref(false); 
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
@@ -50,31 +61,34 @@ const handleLogin = async () => {
     feedback.value = "";
     isError.value = false;
 
+    // Nettoyage des saisies (évite les erreurs de copier-coller)
+    const cleanEmail = email.value.trim().toLowerCase();
+    const cleanPassword = password.value.trim();
+
     try {
-        // 1. On récupère le client via son email (puisque la route /Login n'existe pas)
-        const response = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(email.value)}`);
+        // 1. Récupération du client par Email
+        const response = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
 
         if (!response.ok) {
+            // Si le statut n'est pas 200, l'email n'existe probablement pas
             throw new Error("Compte inexistant ou erreur réseau.");
         }
 
         const userData = await response.json();
 
-        // 2. Vérification hybride du mot de passe
+        // 2. Vérification du mot de passe (L'API renvoie le hash $2a$)
         let isMatch = false;
 
-        // On vérifie si le MDP en base commence par la signature bcrypt "$2a$"
-        if (userData.mdp && userData.mdp.startsWith('$2a$')) {
-            // COMPTE RÉCENT (Haché)
-            isMatch = bcrypt.compareSync(password.value, userData.mdp);
+        if (userData.mdp && userData.mdp.startsWith('$2b$')) {
+            // Le mot de passe en base est crypté, on utilise compareSync
+            isMatch = bcrypt.compareSync(cleanPassword, userData.mdp);
         } else {
-            // COMPTE ANCIEN (Texte clair)
-            // On compare directement les deux chaînes
-            isMatch = (password.value === userData.mdp);
+            // Cas particulier : si le mot de passe est encore en clair (ex: tes anciens tests)
+            isMatch = (cleanPassword === userData.mdp);
         }
 
         if (isMatch) {
-            // 3. Succès : On met à jour le store global
+            // 3. Succès : Stockage dans Pinia et redirection
             store.login(userData);
             
             isError.value = false;
@@ -84,12 +98,14 @@ const handleLogin = async () => {
                 router.push('/');
             }, 1500);
         } else {
+            // Si l'email existe mais que le hash ne correspond pas
             throw new Error("Mot de passe incorrect.");
         }
 
     } catch (err) {
         isError.value = true;
         feedback.value = err.message;
+        console.error("Détail erreur login:", err);
     } finally {
         loading.value = false;
     }
@@ -224,6 +240,42 @@ input:focus {
   opacity: 0; 
 }
 
+/* Conteneur pour aligner l'input et le bouton */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* On s'assure que l'input laisse de la place pour le texte à droite */
+.input-wrapper input {
+  padding-right: 60px; /* Espace pour ne pas que le texte chevauche le bouton */
+}
+
+/* Style du bouton "VOIR / CACHER" */
+.toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #00a8e8; /* Ton bleu Cube */
+  font-family: 'CubeFont', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 5px;
+  transition: color 0.2s ease;
+  z-index: 2;
+}
+
+.toggle-btn:hover {
+  color: #000;
+}
+
+/* Ajustement pour que le champ password s'aligne bien avec les autres */
+.field-group {
+  margin-bottom: 18px;
+}
 @media (max-width: 480px) {
   .auth-card {
     padding: 25px;
