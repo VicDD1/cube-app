@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import StoreLocator from '../components/StoreLocator.vue'
 import { useAppStore } from '../stores/useStore'
 
+
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
@@ -15,17 +16,17 @@ const inventaire = ref([])
 const variantesCouleurs = ref([])
 const loading = ref(true)
 
-// Simulation d'utilisateur. À lier à votre système d'auth.
+
+const batterieInfo = ref(null)
+const showCartModal = ref(false)
+const sizeError = ref(false)
+
 const idClient = ref(null); 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api';
 
 const currentImgIndex = ref(1)
 const isVelo = computed(() => reference.value?.length === 6)
 const folder = computed(() => isVelo.value ? 'VELOS' : 'ACCESSOIRES')
-const showCartModal = ref(false)
-
-// NOUVEAU : Contrôle de l'erreur visuelle pour la taille
-const sizeError = ref(false)
 
 const getLocalImage = (ref, index) => {
   try {
@@ -76,7 +77,7 @@ const isAvailableInAnyStore = computed(() => {
 
 const selectTaille = (item) => { 
   selectedTaille.value = item 
-  sizeError.value = false // On retire l'erreur si le client choisit une taille
+  sizeError.value = false 
 }
 
 const storeButtonText = computed(() => {
@@ -84,18 +85,21 @@ const storeButtonText = computed(() => {
   return '» CHANGER DE MAGASIN';
 })
 
-// NOUVEAU : Action au clic du bouton magasin
 const handleStoreAction = () => {
   if (!selectedTaille.value) {
     sizeError.value = true
-    setTimeout(() => { sizeError.value = false }, 600) // L'animation dure 600ms
+    setTimeout(() => { sizeError.value = false }, 600)
   } else {
     openStoreLocator()
   }
 }
 
 const addToCart = async () => {
-  if (!selectedTaille.value) return;
+  if (!selectedTaille.value) {
+    sizeError.value = true
+    setTimeout(() => { sizeError.value = false }, 600)
+    return;
+  }
 
   if (!idClient.value) {
     let panierLocal = JSON.parse(localStorage.getItem('panierVisiteur')) || { lignePaniers: [] };
@@ -115,8 +119,8 @@ const addToCart = async () => {
     }
     localStorage.setItem('panierVisiteur', JSON.stringify(panierLocal));
     
-    appStore.updateCartCount(null);
-    showCartModal.value = true;
+    appStore.updateCartCount(null); 
+    showCartModal.value = true; 
     return;
   }
 
@@ -209,8 +213,18 @@ const fetchData = async () => {
       const resModel = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Modele/GetDetails/${article.value.idModele}`)
       const modelData = await resModel.json()
       variantesCouleurs.value = modelData.varianteVelos || []
-      
-      listeTailles.value = inventaire.value.map(i => ({
+        // RÉCUPÉRATION BATTERIE VIA ID DU MODÈLE
+      if (modelData.idBatterie) {
+        try {
+          const resBatt = await fetch(`${API_BASE}/Batterie/GetById/${modelData.idBatterie}`)
+          if (resBatt.ok) {
+            batterieInfo.value = await resBatt.json()
+          }
+        } catch (err) {
+          console.error("Erreur lors de la récupération de la batterie:", err)
+        }
+      }
+            listeTailles.value = inventaire.value.map(i => ({
          idTaille: i.idTaille,
          nom: i.idTailleNavigation.taille1.trim()
       }))
@@ -228,6 +242,7 @@ watch(reference, () => {
     currentImgIndex.value = 1;
     selectedTaille.value = null;
     sizeError.value = false;
+    batterieInfo.value = null;
 })
 
 onMounted(fetchData)
@@ -261,6 +276,15 @@ onMounted(fetchData)
             </div>
             <div class="accordion-content" v-show="activeSection === 'TECH'">
               <div class="tech-table">
+                
+                <div v-if="batterieInfo" class="tech-group">
+                  <h3 class="group-title">BATTERIE</h3>
+                  <div class="tech-row">
+                    <span class="tech-label">Capacité</span>
+                    <span class="tech-value">{{ batterieInfo.capacite }} Wh</span>
+                  </div>
+                </div>
+
                 <div v-for="(items, groupName) in fichesTechniquesGroupees" :key="groupName" class="tech-group">
                   <h3 class="group-title">{{ groupName }}</h3>
                   <div v-for="item in items" :key="item.idCaracteristique" class="tech-row">
@@ -426,6 +450,19 @@ onMounted(fetchData)
             </RouterLink>
           </div>
         </div>
+          <div class="battery-section" v-if="batterieInfo">
+    <h3 class="section-label">DÉTAILS ÉLECTRIQUES</h3>
+    <div class="battery-card">
+      <div class="battery-row">
+        <span class="batt-label">Modèle :</span>
+        <span class="batt-val">{{ batterieInfo.nomBatterie || 'Standard' }}</span>
+      </div>
+      <div class="battery-row">
+        <span class="batt-label">Capacité :</span>
+        <span class="batt-val">{{ batterieInfo.capacite }} Wh</span>
+      </div>
+    </div>
+  </div>
       </div>
     </div>
 
@@ -452,7 +489,7 @@ onMounted(fetchData)
 .visualize-page { max-width: 1400px; margin: 100px auto; padding: 0 20px; font-family: 'Inter', sans-serif; }
 .product-hero { display: grid; grid-template-columns: 1.6fr 1fr; gap: 50px; }
 
-/* NOUVEAU : Animation de tremblement et couleur rouge */
+/* Animation de tremblement et couleur rouge */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-5px); }
@@ -463,7 +500,42 @@ onMounted(fetchData)
 }
 .needs-size .section-label { color: #ff3333; transition: color 0.3s; }
 .needs-size .size-box { border-color: #ff3333; background-color: #fffafa; transition: all 0.3s; }
+.battery-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+}
 
+.battery-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.battery-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.battery-row:last-child {
+  margin-bottom: 0;
+}
+
+.batt-label {
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.batt-val {
+  font-weight: 900;
+  color: #000;
+}
 /* Galerie */
 .main-image-wrapper { position: relative; background: #fff; display: flex; justify-content: center; align-items: center; min-height: 500px; border: 1px solid #f0f0f0; }
 .main-view { max-width: 90%; max-height: 500px; object-fit: contain; }
