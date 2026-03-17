@@ -2,6 +2,9 @@
 import { ref, computed, watch, nextTick, markRaw } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useAppStore } from '../stores/useStore' // L'import vital qui manquait
+
+const appStore = useAppStore() // L'initialisation du store
 
 const emit = defineEmits(['storeSelected'])
 
@@ -21,18 +24,16 @@ const greenIcon = new L.Icon({ iconUrl: "https://raw.githubusercontent.com/point
 const blueIcon = new L.Icon({ iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png", shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png", iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
 const redIcon = new L.Icon({ iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png", shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png", iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34] })
 
-// 🔴 LA CORRECTION EST ICI
 const toggle = () => {
   isVisible.value = !isVisible.value
   if (isVisible.value) {
     document.body.style.overflow = "hidden"
+    onlyInStock.value = false 
     if (!magasins.value.length) fetchMagasins()
     
-    // Si la carte n'existe pas, on la crée
     if (!map.value) {
       nextTick(initMap)
     } else {
-      // Si elle existe déjà, on la force à recalculer sa taille car elle était cachée !
       setTimeout(() => {
         if (map.value) map.value.invalidateSize()
       }, 150)
@@ -125,12 +126,28 @@ const initMap = () => {
   } else { gpsStatus.value = "GPS non supporté" }
 }
 
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
 const magasinsFiltres = computed(() => {
   let list = magasins.value.map(m => ({ ...m })) 
 
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
     list = list.filter(m => m.nomAffiche.toLowerCase().includes(q) || m.villeAffiche.toLowerCase().includes(q))
+  }
+
+  // Filtrage intelligent "En Stock" connecté au Store Pinia
+  if (onlyInStock.value && appStore.currentBikeInventory) {
+    list = list.filter(magasin => {
+      return appStore.currentBikeInventory.some(tailleInventaire => {
+        const stockMagasin = tailleInventaire.inventaireMagasins?.find(m => m.idMagasin === magasin.idMagasin)
+        return stockMagasin && stockMagasin.quantiteStockMagasin > 0
+      })
+    })
   }
   
   if (userCoords.value) {
@@ -173,12 +190,6 @@ const updateMapMarkers = () => {
   if (currentView.value === 'map') { map.value.invalidateSize() }
 }
 
-const getDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
-
 const switchView = (view) => {
   currentView.value = view
   if (view === 'map' && map.value) { setTimeout(() => map.value.invalidateSize(), 100) }
@@ -194,8 +205,9 @@ const switchView = (view) => {
         <h2>CHOISIR UN MAGASIN</h2>
         <div class="sl-controls">
           <input type="text" v-model="searchQuery" placeholder="Ville, nom du magasin..." class="sl-search">
-          <label class="sl-toggle">
-            <input type="checkbox" v-model="onlyInStock"> <span>En stock</span>
+          
+          <label v-if="appStore.currentBikeInventory" class="sl-toggle">
+            <input type="checkbox" v-model="onlyInStock"> <span>En stock pour ce modèle</span>
           </label>
         </div>
         

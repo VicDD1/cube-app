@@ -60,15 +60,9 @@ const prevImage = () => {
   else currentImgIndex.value = 4
 }
 
-const storeLocatorRef = ref(null)
-
+// 🔴 MODIFIÉ : On déclenche un événement personnalisé pour dire au Header d'ouvrir son StoreLocator
 const openStoreLocator = () => {
-  storeLocatorRef.value?.toggle()
-}
-
-const handleStoreSelection = (magasin) => {
-  console.log("Magasin sélectionné depuis la page article :", magasin)
-  appStore.setMagasin(magasin) 
+  window.dispatchEvent(new CustomEvent('open-store-locator'))
 }
 
 // --- GESTION ACHAT ---
@@ -96,7 +90,6 @@ const isAvailableInOtherStores = computed(() => {
   )
 })
 
-// 4. Stock global magasin
 const isAvailableInAnyStore = computed(() => {
   if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
   return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0)
@@ -231,6 +224,9 @@ const fetchData = async () => {
     
     const stockData = await resInv.json()
     inventaire.value = stockData.articleInventaires 
+
+    // 🔴 LA LIGNE MAGIQUE : On envoie l'inventaire au store global !
+    appStore.setCurrentBikeInventory(inventaire.value)
 
     if (isVelo.value && article.value?.idModele) {
       const resModel = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Modele/GetDetails/${article.value.idModele}`)
@@ -433,8 +429,6 @@ onMounted(fetchData)
           </button>
         </div>
 
-        <StoreLocator ref="storeLocatorRef" @storeSelected="handleStoreSelection" />
-
         <div class="color-section" v-if="variantesCouleurs.length > 0">
           <h3 class="section-label">ÉGALEMENT DISPONIBLE EN</h3>
           <div class="color-grid">
@@ -473,23 +467,9 @@ onMounted(fetchData)
 .thumbnails-row img.active { border-color: #000; border-width: 2px; }
 
 /* Couleur de la colonne sélectionnée */
-.highlight-column {
-  background-color: rgba(0, 207, 232, 0.1) !important; /* Bleu très clair */
-  border-left: 1px solid rgba(0, 207, 232, 0.3);
-  border-right: 1px solid rgba(0, 207, 232, 0.3);
-  position: relative;
-}
-
-/* Optionnel : mettre le texte en gras dans la colonne active */
-th.highlight-column {
-  color: #00CFE8;
-  background-color: rgba(0, 207, 232, 0.15) !important;
-}
-
-/* Pour s'assurer que le survol fonctionne toujours bien */
-.geo-table tr:hover td.highlight-column {
-  background-color: rgba(0, 207, 232, 0.2) !important;
-}
+.highlight-column { background-color: rgba(0, 207, 232, 0.1) !important; border-left: 1px solid rgba(0, 207, 232, 0.3); border-right: 1px solid rgba(0, 207, 232, 0.3); position: relative; }
+th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) !important; }
+.geo-table tr:hover td.highlight-column { background-color: rgba(0, 207, 232, 0.2) !important; }
 
 /* Achat */
 .breadcrumb { font-size: 0.7rem; font-weight: 900; color: #999; }
@@ -512,9 +492,7 @@ th.highlight-column {
 .ok .dot { background: #7ED321; }
 .err .dot { background: #FF0000; }
 
-.availability-legend {
-  margin-bottom: 25px;
-}
+.availability-legend { margin-bottom: 25px; }
 
 .btn-black, .btn-white { width: 100%; padding: 20px; font-weight: 900; font-style: italic; cursor: pointer; border: none; margin-bottom: 10px; clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); }
 .btn-black { background: #000; color: #fff; margin-bottom: 25px;}
@@ -535,97 +513,28 @@ th.highlight-column {
 .loader { padding: 100px; text-align: center; font-weight: 900; }
 
 /* --- LAYOUT --- */
-.product-hero { 
-  display: grid; 
-  grid-template-columns: 1.6fr 1.2fr; /* Ajustement largeur */
-  gap: 0; /* On colle pour le fond gris */
-  background: #fff;
-}
-
+.product-hero { display: grid; grid-template-columns: 1.6fr 1.2fr; gap: 0; background: #fff; }
 .gallery-column { padding: 40px; }
-
-.purchase-column { 
-  background: #f2f2f2; /* FOND GRIS DEMANDÉ */
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-}
+.purchase-column { background: #f2f2f2; padding: 40px; display: flex; flex-direction: column; }
 
 /* --- BADGE SAISON --- */
-.saison-badge {
-  display: inline-block;
-  border: 1px solid #000;
-  padding: 5px 10px;
-  font-weight: 900;
-  font-size: 0.75rem;
-  width: fit-content;
-  margin-bottom: 20px;
-  background: #fff;
-}
+.saison-badge { display: inline-block; border: 1px solid #000; padding: 5px 10px; font-weight: 900; font-size: 0.75rem; width: fit-content; margin-bottom: 20px; background: #fff; }
 
 /* --- SECTION COULEURS --- */
 .color-section { padding-top: 20px; }
 .color-grid { display: flex; gap: 15px; margin-top: 10px; }
-
-.color-dot-wrapper {
-  padding: 3px;
-  border: 2px solid transparent;
-  border-radius: 50%;
-  display: flex;
-  transition: 0.2s;
-}
-
+.color-dot-wrapper { padding: 3px; border: 2px solid transparent; border-radius: 50%; display: flex; transition: 0.2s; }
 .color-dot-wrapper.active-color { border-color: #000; }
+.color-dot { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); cursor: pointer; display: block; }
 
-.color-dot {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(0,0,0,0.1);
-  cursor: pointer;
-  display: block;
-}
-
-.help-circle {
-  background: #00CFE8;
-  color: #fff;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-style: normal;
-  font-size: 0.7rem;
-  margin-left: 5px;
-  cursor: help;
-}
+.help-circle { background: #00CFE8; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 0.7rem; margin-left: 5px; cursor: help; }
 
 /* --- AJUSTEMENTS PRIX --- */
-.price-box {
-  margin: 30px 0;
-  border-top: 1px solid #ddd;
-  padding-top: 20px;
-}
-
-.dot { 
-  width: 10px; 
-  height: 10px; 
-  border-radius: 50%; 
-  background: #ccc; 
-  margin-right: 10px; 
-  display: inline-block;
-}
-
-/* Vert : Dispo Magasin Actuel */
+.price-box { margin: 30px 0; border-top: 1px solid #ddd; padding-top: 20px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 10px; display: inline-block; }
 .status-line.ok .dot { background: #7ED321 !important; }
-
-/* Orange/Jaune : Dispo Ailleurs uniquement */
 .status-line.warn .dot { background: #FFB300 !important; } 
-
-/* Rouge : Dispo nulle part */
 .status-line.err .dot { background: #FF0000 !important; }
-
 .status-line { display: flex; align-items: center; font-size: 0.85rem; margin: 6px 0; color: #000; font-weight: 600; }
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }

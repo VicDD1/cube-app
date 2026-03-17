@@ -4,13 +4,18 @@ import { ref } from 'vue'
 export const useAppStore = defineStore('app', () => {
   // --- ÉTATS (ref) ---
   const magasinChoisi = ref(null)
-  const isConnected = ref(false) // Assure-toi que cette ligne existe bien
+  const isConnected = ref(false)
   const user = ref(null)
+  const currentBikeInventory = ref(null)
 
   // --- ACTIONS (function) ---
   function setMagasin(magasin) {
     magasinChoisi.value = magasin
     localStorage.setItem('selectedStore', JSON.stringify(magasin))
+  }
+
+  function setCurrentBikeInventory(inventory) {
+    currentBikeInventory.value = inventory
   }
 
   function login(userData) {
@@ -20,7 +25,6 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function logout() {
-    isConnected.value = true // Note : on met à false normalement ici
     isConnected.value = false 
     user.value = null
     localStorage.removeItem('user')
@@ -37,15 +41,18 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  // --- LE RETURN (CRUCIAL) ---
-  // Si 'isConnected' n'est pas ici, le Header plantera
+  // Chargement automatique au lancement
+  loadPersistedStore()
+
+  // --- LE RETURN ---
   return { 
     magasinChoisi, 
     isConnected, 
     user, 
+    currentBikeInventory,
     setMagasin, 
+    setCurrentBikeInventory,
     login, 
-    logout, 
-    loadPersistedStore 
+    logout 
   }
 })
