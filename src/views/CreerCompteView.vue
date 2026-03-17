@@ -27,10 +27,32 @@
           <label>ADRESSE EMAIL</label>
           <input type="email" v-model="form.email" placeholder="NOM@EXEMPLE.COM" required>
         </div>
-
+        
         <div class="field-group">
           <label>MOT DE PASSE</label>
-          <input type="password" v-model="form.password" placeholder="••••••••" required>
+          <div class="input-wrapper">
+            <input 
+              :type="showPassword ? 'text' : 'password'" 
+              v-model="form.password" 
+              placeholder="••••••••" 
+              required
+            >
+            <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
+              {{ showPassword ? 'CACHER' : 'VOIR' }}
+            </button>
+          </div>
+        </div>
+        
+        <div class="field-group">
+          <label>CONFIRMER LE MOT DE PASSE</label>
+          <div class="input-wrapper">
+            <input 
+              :type="showPassword ? 'text' : 'password'" 
+              v-model="confirmPassword" 
+              placeholder="••••••••" 
+              required
+            >
+          </div>
         </div>
 
         <div class="field-group">
@@ -119,6 +141,8 @@ import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import bcrypt from 'bcryptjs';
 
+const confirmPassword = ref(''); // Nouveau champ
+const showPassword = ref(false); // État pour afficher/cacher
 const router = useRouter();
 const sameAddress = ref(true);
 const loading = ref(false);
@@ -172,6 +196,12 @@ const selectAdresse = (feature, type) => {
 
 // --- LOGIQUE INSCRIPTION ---
 const handleRegistration = async () => {
+  // 1. Vérification de correspondance des mots de passe
+  if (form.password !== confirmPassword.value) {
+    isError.value = true;
+    feedback.value = "LES MOTS DE PASSE NE CORRESPONDENT PAS.";
+    return; // On arrête tout ici
+  }
   if (loading.value) return;
   loading.value = true;
   feedback.value = ""; // On vide au départ
@@ -275,6 +305,33 @@ const handleRegistration = async () => {
   src: url('@/assets/fonts/font.woff2') format('woff2');
 }
 
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper input {
+  width: 100%;
+  padding-right: 60px; /* Espace pour le bouton à droite */
+}
+
+.toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #00a8e8; /* Ton bleu Cube */
+  font-family: 'CubeFont', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.toggle-btn:hover {
+  color: #000;
+}
 .connexion-page {
   padding-top: 140px; 
   padding-bottom: 80px;
