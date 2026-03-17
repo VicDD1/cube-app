@@ -1,28 +1,26 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
+import { useAppStore } from '../stores/useStore' // Import du store
 
-// null = Visiteur non connecté. (À remplacer par votre variable d'authentification)
+const appStore = useAppStore() // Initialisation du store
 const idClient = ref(null) 
-const cart = ref({ lignePaniers: [] }) // Initialisé vide par défaut
+const cart = ref({ lignePaniers: [] })
 const loading = ref(true)
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 
-// --- CALCUL DU TOTAL ---
 const totalCart = computed(() => {
   if (!cart.value?.lignePaniers) return 0
   return cart.value.lignePaniers.reduce((acc, item) => acc + (item.prixUnitaire * item.quantiteSelectionnee), 0)
 })
-// --- CHARGEMENT DU PANIER ---
+
 const fetchCart = async () => {
   loading.value = true
   try {
     if (!idClient.value) {
-      // 1. VISITEUR
       const localCart = JSON.parse(localStorage.getItem('panierVisiteur'))
       cart.value = (localCart && localCart.lignePaniers) ? localCart : { lignePaniers: [] }
     } else {
-      // 2. CLIENT CONNECTÉ
       const res = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`)
       
       if (res.status === 404) {
@@ -34,7 +32,6 @@ const fetchCart = async () => {
       }
     }
 
-    // 3. RÉCUPÉRATION DES NOMS DES ARTICLES
     if (cart.value.lignePaniers && cart.value.lignePaniers.length > 0) {
       await Promise.all(cart.value.lignePaniers.map(async (item) => {
         try {
@@ -44,10 +41,13 @@ const fetchCart = async () => {
             item.nomArticle = artData.nomArticle
           }
         } catch (e) {
-          console.error(`Erreur récupération nom pour ${item.reference}:`, e)
+          console.error(`Erreur récupération nom:`, e)
         }
       }))
     }
+    
+    // MISE À JOUR PASTILLE
+    appStore.updateCartCount(idClient.value)
 
   } catch (err) {
     console.error("Erreur chargement panier:", err)
@@ -56,17 +56,15 @@ const fetchCart = async () => {
   }
 }
 
-// --- MISE À JOUR DES QUANTITÉS ---
 const updateQuantity = async (item, delta) => {
   const newQty = item.quantiteSelectionnee + delta
   if (newQty <= 0) return removeItem(item)
 
   if (!idClient.value) {
-    // VISITEUR : Mise à jour locale
     item.quantiteSelectionnee = newQty
     localStorage.setItem('panierVisiteur', JSON.stringify(cart.value))
+    appStore.updateCartCount(null) // MISE À JOUR PASTILLE
   } else {
-    // CLIENT CONNECTÉ : Mise à jour via l'API
     try {
       const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
         method: 'PUT',
@@ -80,18 +78,16 @@ const updateQuantity = async (item, delta) => {
   }
 }
 
-// --- SUPPRESSION D'UN ARTICLE ---
 const removeItem = async (item) => {
   if (!confirm("Voulez-vous vraiment retirer cet article ?")) return
 
   if (!idClient.value) {
-    // VISITEUR : Suppression locale
     cart.value.lignePaniers = cart.value.lignePaniers.filter(
       i => !(i.reference === item.reference && i.tailleSelectionnee === item.tailleSelectionnee)
     )
     localStorage.setItem('panierVisiteur', JSON.stringify(cart.value))
+    appStore.updateCartCount(null) // MISE À JOUR PASTILLE
   } else {
-    // CLIENT CONNECTÉ : Suppression via l'API
     try {
       await fetch(`${API_BASE}/LignePanier/DeleteLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
         method: 'DELETE'
@@ -103,7 +99,6 @@ const removeItem = async (item) => {
   }
 }
 
-// --- UTILITAIRE IMAGE ---
 const getImageUrl = (ref) => {
   const folder = ref.length === 6 ? 'VELOS' : 'ACCESSOIRES'
   try {
@@ -196,7 +191,7 @@ onMounted(fetchCart)
     </div>
 
     <div v-else class="empty-cart">
-      <div class="empty-icon">🛒</div>
+   
       <h2>Votre panier est vide</h2>
       <p>Découvrez nos nouveautés et trouvez l'équipement parfait.</p>
       <router-link to="/" class="back-shop-btn">Continuer mes achats</router-link>

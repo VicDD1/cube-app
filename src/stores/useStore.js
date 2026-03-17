@@ -2,20 +2,16 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
-  // --- ÉTATS (ref) ---
   const magasinChoisi = ref(null)
-  const isConnected = ref(false)
+  const isConnected = ref(false) 
   const user = ref(null)
-  const currentBikeInventory = ref(null)
+  
+  // Nouvelle variable pour la pastille
+  const cartItemCount = ref(0) 
 
-  // --- ACTIONS (function) ---
   function setMagasin(magasin) {
     magasinChoisi.value = magasin
     localStorage.setItem('selectedStore', JSON.stringify(magasin))
-  }
-
-  function setCurrentBikeInventory(inventory) {
-    currentBikeInventory.value = inventory
   }
 
   function login(userData) {
@@ -41,18 +37,37 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  // Chargement automatique au lancement
-  loadPersistedStore()
+  // Nouvelle action pour recalculer le nombre d'articles
+  async function updateCartCount(idClient = null) {
+    if (!idClient) {
+      const localCart = JSON.parse(localStorage.getItem('panierVisiteur'))
+      cartItemCount.value = localCart?.lignePaniers?.length || 0
+    } else {
+      try {
+        const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Panier/GetActiveCart/${idClient}`)
+        if (res.ok) {
+          const data = await res.json()
+          const detailsRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Panier/GetDetails/${data.idPanier}`)
+          const detailsData = await detailsRes.json()
+          cartItemCount.value = detailsData.lignePaniers?.length || 0
+        } else {
+          cartItemCount.value = 0
+        }
+      } catch (e) {
+        cartItemCount.value = 0
+      }
+    }
+  }
 
-  // --- LE RETURN ---
   return { 
     magasinChoisi, 
     isConnected, 
     user, 
-    currentBikeInventory,
+    cartItemCount,
     setMagasin, 
-    setCurrentBikeInventory,
     login, 
-    logout 
+    logout, 
+    loadPersistedStore,
+    updateCartCount
   }
 })

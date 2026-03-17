@@ -3,11 +3,12 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Store, Search, User, ShoppingCart } from 'lucide-vue-next'
 import StoreLocator from './StoreLocator.vue'
+import { useAppStore } from '../stores/useStore' // Import du store
 
 const baseUrl = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net'
 const router = useRouter()
+const appStore = useAppStore() // Initialisation du store
 
-// On indique 'hasMenu: false' pour empêcher le menu blanc de s'ouvrir sur Aide et Contact
 const navigationLinks = [
   { id: 'velos', label: 'VÉLOS', url: '/velos', hasMenu: true },
   { id: 'electriques', label: 'VÉLOS ÉLECTRIQUES', url: '/velos-electriques', hasMenu: true },
@@ -20,31 +21,31 @@ const activeMenuId = ref(null)
 const mainCategories = ref([])
 const subCategories = ref([])
 const models = ref([])
-
 const activeMainId = ref(null)
 const activeSubId = ref(null)
 const activeSubName = ref('')
-
 let hoverTimeout = null
 
-// --- GESTION DU MAGASIN ---
 const storeLocatorRef = ref(null)
 const magasinChoisi = ref(null)
 
 const openStoreLocator = () => { storeLocatorRef.value?.toggle() }
 const handleStoreSelection = (magasin) => { magasinChoisi.value = magasin.nomAffiche }
-// --------------------------
 
 const getId = (item) => item.idCategorieAccessoire || item.idCategorie || item.IdCategorie || item.IDCATEGORIE || item.idModele || item.IdModele || item.reference || item.Reference || item.id || Math.random()
 const getName = (item) => item.nomCategorieAccessoire || item.nomCategorie || item.NomCategorie || item.NOMCATEGORIE || item.nomModele || item.NomModele || item.nom || item.Nom || 'Inconnu'
 
-// 🔴 NOUVEAU : Mémoire intelligente des catégories valides (pour cacher les catégories vides)
 const validElectricCats = ref(new Set())
 const validMuscularCats = ref(new Set())
 
 onMounted(async () => {
+  // Chargement des données persistantes et mise à jour de la pastille
+  appStore.loadPersistedStore()
+  // Remplacez idClient par la bonne propriété si différente (ex: appStore.user.id)
+  const idClientActuel = appStore.user ? appStore.user.idClient : null
+  appStore.updateCartCount(idClientActuel)
+
   try {
-    // Le Header scanne tout le catalogue en fond pour savoir où sont rangés les vélos électriques et musculaires
     const [resVars, resCats] = await Promise.all([
       fetch(`${baseUrl}/api/VarianteVelo/GetVariantes`),
       fetch(`${baseUrl}/api/CategorieVelo/GetCategories`)
@@ -71,7 +72,6 @@ onMounted(async () => {
       }
     })
 
-    // On valide aussi les catégories "Parents" (ex: VTT) si elles contiennent une sous-catégorie valide
     const propagate = (cats, targetSet) => {
       let hasValid = false
       const list = cats.$values || cats
@@ -129,7 +129,6 @@ const openMenu = async (id) => {
     const data = await res.json()
     let items = data.$values || data.data || data || []
 
-    // 🔴 FILTRAGE INTELLIGENT : On supprime les catégories principales vides
     if (id === 'electriques') items = items.filter(cat => validElectricCats.value.has(getId(cat)))
     else if (id === 'velos') items = items.filter(cat => validMuscularCats.value.has(getId(cat)))
 
@@ -150,7 +149,6 @@ const loadSubCategories = async (id) => {
     const data = await res.json()
     let items = data.$values || data.data || data || []
 
-    // 🔴 FILTRAGE INTELLIGENT : On supprime les sous-catégories vides
     if (activeMenuId.value === 'electriques') items = items.filter(cat => validElectricCats.value.has(getId(cat)))
     else if (activeMenuId.value === 'velos') items = items.filter(cat => validMuscularCats.value.has(getId(cat)))
 
@@ -191,13 +189,8 @@ const closeMenu = () => {
   models.value = []
 }
 
-const startClear = () => {
-  hoverTimeout = setTimeout(() => { closeMenu() }, 400)
-}
-
-const cancelClear = () => {
-  if (hoverTimeout) clearTimeout(hoverTimeout)
-}
+const startClear = () => { hoverTimeout = setTimeout(() => { closeMenu() }, 400) }
+const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
 </script>
 
 <template>
@@ -265,14 +258,15 @@ const cancelClear = () => {
 
       <div class="nav-actions">
         <a href="#" class="shop-link" @click.prevent="openStoreLocator">
-          {{ magasinChoisi ? magasinChoisi : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
+          {{ appStore.magasinChoisi ? appStore.magasinChoisi.nomAffiche : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
         </a>
         <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
         <router-link to="/connexion" class="icon-btn"><User :size="20" :stroke-width="2" /></router-link>
-        <div class="cart-container">
+        
+        <router-link to="/panier" class="cart-container">
           <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
-          <span class="cart-badge">0</span>
-        </div>
+          <span v-if="appStore.cartItemCount > 0" class="cart-badge">{{ appStore.cartItemCount }}</span>
+        </router-link>
       </div>
 
     </div>
@@ -280,40 +274,51 @@ const cancelClear = () => {
 
   <StoreLocator ref="storeLocatorRef" @storeSelected="handleStoreSelection" />
 </template>
-
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap');
+
 .cube-header {
   position: absolute;
   top: 0;
   width: 100%;
   z-index: 100;
-  font-family: Arial, sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
+/* --- NAVIGATION PRINCIPALE --- */
 .main-nav {
   position: relative;
   display: flex;
   align-items: center;
   gap: 50px;
-  height: 120px;
-  padding: 0 40px;
-  background-color: rgba(0, 0, 0, 0.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  transition: background-color 0.3s ease, border-bottom 0.3s ease;
+  height: 100px; /* Légèrement affiné pour l'élégance */
+  padding: 0 50px;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px); /* Effet moderne de verre dépoli */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .main-nav:hover {
-  background-color: #fff;
+  background-color: rgba(255, 255, 255, 0.98);
   border-bottom: 1px solid #eaeaea;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.05);
 }
 
 .nav-links {
   display: flex;
-  gap: 15px;
+  gap: 25px;
   height: 100%;
-  justify-content: left;
 }
 
+.nav-item {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 10px;
+}
+
+/* --- LIENS & BOUTONS --- */
 .main-link,
 .shop-link,
 .icon-btn {
@@ -321,8 +326,8 @@ const cancelClear = () => {
   color: #fff;
   font-weight: 900; 
   font-style: italic;
-  transition: color 0.3s ease;
-  font-size: 16px; 
+  transition: all 0.3s ease;
+  font-size: 0.95rem; 
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -330,13 +335,17 @@ const cancelClear = () => {
 .main-nav:hover .main-link,
 .main-nav:hover .shop-link,
 .main-nav:hover .icon-btn {
-  color: #000;
+  color: #1a1a1a;
 }
 
 .main-link:hover,
-.shop-link:hover,
+.shop-link:hover {
+  color: #00a8e8 !important;
+}
+
 .icon-btn:hover {
   color: #00a8e8 !important;
+  transform: scale(1.1); /* Micro-interaction au survol */
 }
 
 .main-link {
@@ -352,74 +361,88 @@ const cancelClear = () => {
   width: 0%;
   height: 3px;
   background-color: #00a8e8;
-  transition: width 0.4s ease-in-out;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 2px;
 }
 
 .nav-item:hover .main-link::after {
   width: 100%;
 }
 
-/* Le logo de base */
+/* --- LOGO --- */
 .logo-img {
-  height: 45px;
-  transition: filter 0.3s ease;
+  height: 40px;
+  transition: filter 0.4s ease, transform 0.3s ease;
 }
-
-/* L'inversion du logo en noir quand le header est survolé */
 .main-nav:hover .logo-img {
   filter: invert(100%);
 }
+.logo-img:hover {
+  transform: scale(1.05);
+}
 
+/* --- ACTIONS DROITE --- */
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 20px;
   margin-left: auto;
 }
 
 .shop-link {
-  font-size: 12px;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 16px;
+  border-radius: 50px;
+  border: 1px solid transparent;
+}
+.main-nav:hover .shop-link {
+  background: #f5f5f5;
+}
+.shop-link:hover {
+  background: #00a8e815 !important;
+  border-color: #00a8e830;
 }
 
 .icon-btn {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 8px;
   display: flex;
   align-items: center;
-  /* La couleur de base est héritée au-dessus, pas besoin de forcer en blanc ici */
+  justify-content: center;
 }
 
+/* --- PANIER --- */
 .cart-container {
   position: relative;
   display: flex;
   align-items: center;
+  text-decoration: none;
 }
 
 .cart-badge {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: 0px;
+  right: 0px;
   background-color: #00a8e8;
   color: white;
-  font-size: 10px;
-  font-weight: bold;
-  padding: 2px 5px;
-  border-radius: 10px;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease;
+}
+.main-nav:hover .cart-badge {
+  border-color: #fff;
 }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  padding: 0 10px;
-}
-
-/* ⚪ LE MEGA-MENU BLANC */
+/* --- MEGA MENU --- */
 .mega-menu {
   position: absolute;
   top: 100%;
@@ -427,19 +450,26 @@ const cancelClear = () => {
   width: 100%;
   background-color: #fff;
   display: flex;
-  padding: 60px 80px;
+  padding: 50px 80px 70px;
   min-height: 400px;
   box-sizing: border-box;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.1);
   border-top: 1px solid #eaeaea;
   cursor: default;
   z-index: 100;
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: scaleY(0.95) translateY(-10px); }
+  to { opacity: 1; transform: scaleY(1) translateY(0); }
 }
 
 .menu-column {
   width: 320px;
   flex-shrink: 0;
-  border-left: 1px solid #eaeaea;
+  border-left: 1px solid #f0f0f0;
   padding: 0 40px;
 }
 
@@ -459,29 +489,35 @@ const cancelClear = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 15px 14px 0;
-  font-size: 15px;
+  padding: 12px 15px 12px 0;
+  font-size: 0.95rem;
   font-weight: 800;
   font-style: italic;
-  color: #333;
+  color: #444;
   text-transform: uppercase;
   cursor: pointer;
-  transition: padding-left 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .menu-column li::after {
   content: '›';
-  font-size: 22px;
-  color: #ddd;
+  font-size: 1.5rem;
+  color: #ccc;
   font-style: normal;
   font-weight: 400;
-  transition: transform 0.2s ease, color 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+.menu-column li.active,
+.menu-column li:hover {
+  color: #00a8e8;
+  padding-left: 12px;
 }
 
 .menu-column li.active::after,
 .menu-column li:hover::after {
   color: #00a8e8;
-  transform: translateX(4px);
+  transform: translateX(6px);
 }
 
 .menu-column li::before {
@@ -491,23 +527,18 @@ const cancelClear = () => {
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 18px;
+  height: 0;
   background-color: #00a8e8;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.menu-column li.active,
-.menu-column li:hover {
-  color: #00a8e8;
-  padding-left: 15px;
+  transition: height 0.2s ease;
+  border-radius: 4px;
 }
 
 .menu-column li.active::before,
 .menu-column li:hover::before {
-  opacity: 1;
+  height: 60%;
 }
 
+/* --- COLONNE DES MODÈLES --- */
 .column-models {
   flex-grow: 1;
 }
@@ -517,36 +548,34 @@ const cancelClear = () => {
 }
 
 .models-title {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 900;
   font-style: italic;
   text-transform: uppercase;
-  color: #000;
+  color: #1a1a1a;
   margin: 0;
   display: inline-block;
   border-bottom: 3px solid #00a8e8;
-  padding-bottom: 5px;
+  padding-bottom: 8px;
 }
 
 .column-models ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px 30px;
 }
 
 .column-models li {
-  width: calc(50% - 20px);
-  padding: 5px 0;
-  font-size: 14px;
+  padding: 8px 0;
+  font-size: 0.95rem;
   font-weight: 500;
   font-style: normal;
-  text-transform: none;
-  color: #555;
+  text-transform: capitalize;
+  color: #666;
 }
 
 .column-models li::before,
 .column-models li::after {
-  content: none;
   display: none;
 }
 
@@ -554,5 +583,6 @@ const cancelClear = () => {
 .column-models li:hover {
   padding-left: 0;
   color: #00a8e8;
+  font-weight: 700;
 }
 </style>

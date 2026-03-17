@@ -8,7 +8,6 @@ const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 
-// Référence réactive au changement de couleur
 const reference = computed(() => route.params.id?.trim())
 const article = ref(null)
 const caracteristiques = ref([])
@@ -16,14 +15,17 @@ const inventaire = ref([])
 const variantesCouleurs = ref([])
 const loading = ref(true)
 
-// Simulation d'un utilisateur non connecté (null). 
-// À remplacer par la variable de votre système d'authentification.
+// Simulation d'utilisateur. À lier à votre système d'auth.
 const idClient = ref(null); 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api';
 
 const currentImgIndex = ref(1)
 const isVelo = computed(() => reference.value?.length === 6)
 const folder = computed(() => isVelo.value ? 'VELOS' : 'ACCESSOIRES')
+const showCartModal = ref(false)
+
+// NOUVEAU : Contrôle de l'erreur visuelle pour la taille
+const sizeError = ref(false)
 
 const getLocalImage = (ref, index) => {
   try {
@@ -35,61 +37,38 @@ const getLocalImage = (ref, index) => {
 
 const fichesTechniquesGroupees = computed(() => {
   const groupes = {}
-
   caracteristiques.value.forEach(item => {
     const groupe = item.idCaracteristiqueNavigation?.idGroupeCaracteristiqueNavigation?.nomGroupe || 'AUTRES'
-
-    if (!groupes[groupe]) {
-      groupes[groupe] = []
-    }
-
+    if (!groupes[groupe]) groupes[groupe] = []
     groupes[groupe].push(item)
   })
-
   return groupes
 })
 
-// --- GESTION GALERIE ---
 const nextImage = () => {
   if (currentImgIndex.value < 4) currentImgIndex.value++
   else currentImgIndex.value = 1
 }
-
 const prevImage = () => {
   if (currentImgIndex.value > 1) currentImgIndex.value--
   else currentImgIndex.value = 4
 }
 
-// 🔴 MODIFIÉ : On déclenche un événement personnalisé pour dire au Header d'ouvrir son StoreLocator
-const openStoreLocator = () => {
-  window.dispatchEvent(new CustomEvent('open-store-locator'))
-}
+const storeLocatorRef = ref(null)
+const openStoreLocator = () => { storeLocatorRef.value?.toggle() }
+const handleStoreSelection = (magasin) => { appStore.setMagasin(magasin) }
 
-// --- GESTION ACHAT ---
 const selectedTaille = ref(null)
-
-// 1. Stock en ligne
 const isAvailableOnline = computed(() => (selectedTaille.value?.quantiteStockEnLigne || 0) > 0)
-
-// 2. Stock dans le magasin ACTUEL
 const isAvailableInCurrentStore = computed(() => {
   if (!selectedTaille.value || !appStore.magasinChoisi || !selectedTaille.value.inventaireMagasins) return false
-  
-  const stockMagasin = selectedTaille.value.inventaireMagasins.find(
-    m => m.idMagasin === appStore.magasinChoisi.idMagasin
-  )
+  const stockMagasin = selectedTaille.value.inventaireMagasins.find(m => m.idMagasin === appStore.magasinChoisi.idMagasin)
   return (stockMagasin?.quantiteStockMagasin || 0) > 0
 })
-
-// 3. Stock dans un AUTRE magasin
 const isAvailableInOtherStores = computed(() => {
   if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
-  
-  return selectedTaille.value.inventaireMagasins.some(m => 
-    m.quantiteStockMagasin > 0 && m.idMagasin !== appStore.magasinChoisi?.idMagasin
-  )
+  return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0 && m.idMagasin !== appStore.magasinChoisi?.idMagasin)
 })
-
 const isAvailableInAnyStore = computed(() => {
   if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
   return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0)
@@ -97,43 +76,50 @@ const isAvailableInAnyStore = computed(() => {
 
 const selectTaille = (item) => { 
   selectedTaille.value = item 
+  sizeError.value = false // On retire l'erreur si le client choisit une taille
 }
 
 const storeButtonText = computed(() => {
-  if (!appStore.magasinChoisi) {
-    return '» AJOUTER UN MAGASIN';
-  }
+  if (!appStore.magasinChoisi) return '» AJOUTER UN MAGASIN';
   return '» CHANGER DE MAGASIN';
 })
+
+// NOUVEAU : Action au clic du bouton magasin
+const handleStoreAction = () => {
+  if (!selectedTaille.value) {
+    sizeError.value = true
+    setTimeout(() => { sizeError.value = false }, 600) // L'animation dure 600ms
+  } else {
+    openStoreLocator()
+  }
+}
 
 const addToCart = async () => {
   if (!selectedTaille.value) return;
 
-  // 1. GESTION DU VISITEUR NON CONNECTÉ (Sauvegarde locale)
   if (!idClient.value) {
     let panierLocal = JSON.parse(localStorage.getItem('panierVisiteur')) || { lignePaniers: [] };
-    
     const indexExistant = panierLocal.lignePaniers.findIndex(
       item => item.reference === reference.value && item.tailleSelectionnee === selectedTaille.value.idTailleNavigation.taille1.trim()
     );
-
     if (indexExistant > -1) {
       panierLocal.lignePaniers[indexExistant].quantiteSelectionnee += 1;
     } else {
       panierLocal.lignePaniers.push({
         reference: reference.value,
+        nomArticle: article.value.nomArticle, 
         tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
         quantiteSelectionnee: 1,
         prixUnitaire: article.value.prix
       });
     }
-
     localStorage.setItem('panierVisiteur', JSON.stringify(panierLocal));
-    router.push({ name: 'CartView' });
+    
+    appStore.updateCartCount(null);
+    showCartModal.value = true;
     return;
   }
 
-  // 2. GESTION DU CLIENT CONNECTÉ (Sauvegarde via l'API)
   try {
     let vraiIdPanier = null;
     const cartRes = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`);
@@ -147,13 +133,11 @@ const addToCart = async () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idPanier: 0, idClient: idClient.value }) 
       });
-
       if (newCartRes.ok) {
         const newCartData = await newCartRes.json();
         vraiIdPanier = newCartData.idPanier || newCartData.id;
       } else {
-        const errorText = await newCartRes.text();
-        console.error("Erreur 400 détaillée lors de la création du panier :", errorText);
+        console.error("Erreur création panier");
         return;
       }
     }
@@ -173,21 +157,17 @@ const addToCart = async () => {
     });
 
     if (response.ok) {
-      router.push({ name: 'CartView' }); 
-    } else {
-      const errorText = await response.text();
-      console.error("Erreur 400 détaillée sur la ligne panier :", errorText);
+      appStore.updateCartCount(idClient.value);
+      showCartModal.value = true;
     }
   } catch (err) {
-    console.error("Erreur globale d'ajout au panier:", err);
+    console.error("Erreur ajout panier:", err);
   }
 };
 
-// --- ACCORDÉONS ---
 const activeSection = ref('TECH')
 const toggleSection = (s) => activeSection.value = activeSection.value === s ? null : s
 
-// --- GEOMETRIE ---
 const tableauGeometrie = ref({})
 const listeTailles = ref([])
 
@@ -225,9 +205,6 @@ const fetchData = async () => {
     const stockData = await resInv.json()
     inventaire.value = stockData.articleInventaires 
 
-    // 🔴 LA LIGNE MAGIQUE : On envoie l'inventaire au store global !
-    appStore.setCurrentBikeInventory(inventaire.value)
-
     if (isVelo.value && article.value?.idModele) {
       const resModel = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Modele/GetDetails/${article.value.idModele}`)
       const modelData = await resModel.json()
@@ -250,6 +227,7 @@ watch(reference, () => {
     fetchData();
     currentImgIndex.value = 1;
     selectedTaille.value = null;
+    sizeError.value = false;
 })
 
 onMounted(fetchData)
@@ -365,7 +343,7 @@ onMounted(fetchData)
           Référence : {{ reference }} | Poids : {{ article.poids }} kg | Matériau : {{ article.idModeleNavigation?.materiauCadre }}
         </div>
 
-        <div class="size-section">
+        <div class="size-section" :class="{ 'needs-size': sizeError }">
           <h3 class="section-label">TAILLE <span class="help-circle">?</span></h3>
           <div class="size-grid">
             <div v-for="item in inventaire" :key="item.idArticleInventaire" 
@@ -424,10 +402,12 @@ onMounted(fetchData)
             » AJOUTER AU PANIER
           </button>
 
-          <button class="btn-white" @click="openStoreLocator">
+          <button class="btn-white" @click="handleStoreAction">
             {{ storeButtonText }}
           </button>
         </div>
+
+        <StoreLocator ref="storeLocatorRef" @storeSelected="handleStoreSelection" />
 
         <div class="color-section" v-if="variantesCouleurs.length > 0">
           <h3 class="section-label">ÉGALEMENT DISPONIBLE EN</h3>
@@ -448,6 +428,21 @@ onMounted(fetchData)
         </div>
       </div>
     </div>
+
+    <div class="modal-overlay" v-if="showCartModal" @click.self="showCartModal = false">
+      <div class="modal-content">
+        <button class="modal-close" @click="showCartModal = false">✖</button>
+        <div class="modal-icon">✓</div>
+        <h3>Ajouté au panier</h3>
+        <p><strong>{{ article.nomArticle }}</strong> (Taille : {{ selectedTaille?.idTailleNavigation.taille1.trim() }}) a bien été ajouté à votre panier.</p>
+        
+        <div class="modal-actions">
+          <button class="btn-continue" @click="showCartModal = false">CONTINUER MES ACHATS</button>
+          <button class="btn-cart" @click="router.push({ name: 'CartView' })">VOIR MON PANIER</button>
+        </div>
+      </div>
+    </div>
+
   </div>
   <div v-else-if="loading" class="loader">CHARGEMENT...</div>
 </template>
@@ -456,6 +451,18 @@ onMounted(fetchData)
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 .visualize-page { max-width: 1400px; margin: 100px auto; padding: 0 20px; font-family: 'Inter', sans-serif; }
 .product-hero { display: grid; grid-template-columns: 1.6fr 1fr; gap: 50px; }
+
+/* NOUVEAU : Animation de tremblement et couleur rouge */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+.needs-size {
+  animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+.needs-size .section-label { color: #ff3333; transition: color 0.3s; }
+.needs-size .size-box { border-color: #ff3333; background-color: #fffafa; transition: all 0.3s; }
 
 /* Galerie */
 .main-image-wrapper { position: relative; background: #fff; display: flex; justify-content: center; align-items: center; min-height: 500px; border: 1px solid #f0f0f0; }
@@ -491,7 +498,6 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 10px; }
 .ok .dot { background: #7ED321; }
 .err .dot { background: #FF0000; }
-
 .availability-legend { margin-bottom: 25px; }
 
 .btn-black, .btn-white { width: 100%; padding: 20px; font-weight: 900; font-style: italic; cursor: pointer; border: none; margin-bottom: 10px; clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); }
@@ -529,13 +535,22 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 
 .help-circle { background: #00CFE8; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 0.7rem; margin-left: 5px; cursor: help; }
 
-/* --- AJUSTEMENTS PRIX --- */
-.price-box { margin: 30px 0; border-top: 1px solid #ddd; padding-top: 20px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 10px; display: inline-block; }
-.status-line.ok .dot { background: #7ED321 !important; }
-.status-line.warn .dot { background: #FFB300 !important; } 
-.status-line.err .dot { background: #FF0000 !important; }
-.status-line { display: flex; align-items: center; font-size: 0.85rem; margin: 6px 0; color: #000; font-weight: 600; }
+/* --- MODALE AJOUT PANIER --- */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
+.modal-content { background: #fff; padding: 40px; border-radius: 12px; text-align: center; position: relative; max-width: 500px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.15); animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes modalPop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.modal-close { position: absolute; top: 15px; right: 20px; font-size: 20px; background: none; border: none; cursor: pointer; color: #999; transition: color 0.2s; }
+.modal-close:hover { color: #000; }
+.modal-icon { width: 50px; height: 50px; background: #7ED321; color: white; font-size: 24px; line-height: 50px; border-radius: 50%; margin: 0 auto 20px; font-weight: bold; }
+.modal-content h3 { font-weight: 900; font-style: italic; font-size: 1.5rem; margin-bottom: 10px; text-transform: uppercase; }
+.modal-content p { color: #666; margin-bottom: 30px; font-size: 0.95rem; }
+.modal-actions { display: flex; gap: 15px; }
+.btn-continue, .btn-cart { flex: 1; padding: 15px; font-weight: 900; font-style: italic; font-size: 0.9rem; cursor: pointer; border: none; border-radius: 6px; transition: all 0.2s; clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); }
+.btn-continue { background: #f0f0f0; color: #000; }
+.btn-continue:hover { background: #e0e0e0; }
+.btn-cart { background: #000; color: #fff; }
+.btn-cart:hover { background: #00a8e8; }
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .modal-actions { flex-direction: column; } }
 </style>
