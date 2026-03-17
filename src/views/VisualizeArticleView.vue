@@ -1,21 +1,24 @@
 <script setup>
 import { onMounted, ref, computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router' // <-- Import ajouté ici
+import { useRoute, useRouter } from 'vue-router'
 import StoreLocator from '../components/StoreLocator.vue'
 import { useAppStore } from '../stores/useStore'
 
 const route = useRoute()
-const router = useRouter() // <-- Initialisation ajoutée ici
+const router = useRouter()
 const appStore = useAppStore()
 
-// On utilise une ref pour la référence pour qu'elle soit réactive au changement de couleur
+// Référence réactive au changement de couleur
 const reference = computed(() => route.params.id?.trim())
 const article = ref(null)
 const caracteristiques = ref([])
 const inventaire = ref([])
 const variantesCouleurs = ref([])
 const loading = ref(true)
-const idClient = ref(1); // À synchroniser plus tard avec ton système de login
+
+// Simulation d'un utilisateur non connecté (null). 
+// À remplacer par la variable de votre système d'authentification.
+const idClient = ref(null); 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api';
 
 const currentImgIndex = ref(1)
@@ -71,10 +74,10 @@ const handleStoreSelection = (magasin) => {
 // --- GESTION ACHAT ---
 const selectedTaille = ref(null)
 
-// 1. Stock en ligne (pour le bouton Ajouter au panier)
+// 1. Stock en ligne
 const isAvailableOnline = computed(() => (selectedTaille.value?.quantiteStockEnLigne || 0) > 0)
 
-// 2. Stock dans le magasin ACTUEL (choisi via Pinia)
+// 2. Stock dans le magasin ACTUEL
 const isAvailableInCurrentStore = computed(() => {
   if (!selectedTaille.value || !appStore.magasinChoisi || !selectedTaille.value.inventaireMagasins) return false
   
@@ -84,7 +87,7 @@ const isAvailableInCurrentStore = computed(() => {
   return (stockMagasin?.quantiteStockMagasin || 0) > 0
 })
 
-// 3. Stock dans un AUTRE magasin (pour le point Orange/Jaune)
+// 3. Stock dans un AUTRE magasin
 const isAvailableInOtherStores = computed(() => {
   if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
   
@@ -110,20 +113,66 @@ const storeButtonText = computed(() => {
   return '» CHANGER DE MAGASIN';
 })
 
-
 const addToCart = async () => {
   if (!selectedTaille.value) return;
 
-  const payload = {
-    idPanier: 0, 
-    idClient: idClient.value, 
-    reference: reference.value,
-    tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
-    quantiteSelectionnee: 1,
-    prixUnitaire: article.value.prix
-  };
+  // 1. GESTION DU VISITEUR NON CONNECTÉ (Sauvegarde locale)
+  if (!idClient.value) {
+    let panierLocal = JSON.parse(localStorage.getItem('panierVisiteur')) || { lignePaniers: [] };
+    
+    const indexExistant = panierLocal.lignePaniers.findIndex(
+      item => item.reference === reference.value && item.tailleSelectionnee === selectedTaille.value.idTailleNavigation.taille1.trim()
+    );
 
+    if (indexExistant > -1) {
+      panierLocal.lignePaniers[indexExistant].quantiteSelectionnee += 1;
+    } else {
+      panierLocal.lignePaniers.push({
+        reference: reference.value,
+        tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
+        quantiteSelectionnee: 1,
+        prixUnitaire: article.value.prix
+      });
+    }
+
+    localStorage.setItem('panierVisiteur', JSON.stringify(panierLocal));
+    router.push({ name: 'CartView' });
+    return;
+  }
+
+  // 2. GESTION DU CLIENT CONNECTÉ (Sauvegarde via l'API)
   try {
+    let vraiIdPanier = null;
+    const cartRes = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`);
+
+    if (cartRes.ok) {
+      const cartData = await cartRes.json();
+      vraiIdPanier = cartData.idPanier;
+    } else {
+      const newCartRes = await fetch(`${API_BASE}/Panier/PostPanier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idPanier: 0, idClient: idClient.value }) 
+      });
+
+      if (newCartRes.ok) {
+        const newCartData = await newCartRes.json();
+        vraiIdPanier = newCartData.idPanier || newCartData.id;
+      } else {
+        const errorText = await newCartRes.text();
+        console.error("Erreur 400 détaillée lors de la création du panier :", errorText);
+        return;
+      }
+    }
+
+    const payload = {
+      idPanier: vraiIdPanier, 
+      reference: reference.value,
+      tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
+      quantiteSelectionnee: 1,
+      prixUnitaire: article.value.prix
+    };
+
     const response = await fetch(`${API_BASE}/LignePanier/PostLignePanier`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -131,11 +180,13 @@ const addToCart = async () => {
     });
 
     if (response.ok) {
-      // <-- Redirection activée vers le panier au top !
-      router.push({ name: 'cart' }); 
+      router.push({ name: 'CartView' }); 
+    } else {
+      const errorText = await response.text();
+      console.error("Erreur 400 détaillée sur la ligne panier :", errorText);
     }
   } catch (err) {
-    console.error("Erreur ajout panier:", err);
+    console.error("Erreur globale d'ajout au panier:", err);
   }
 };
 
@@ -205,14 +256,7 @@ watch(reference, () => {
     selectedTaille.value = null;
 })
 
-onMounted(() => {
-  document.body.classList.add('force-white-header')
-  fetchData()
-})
-
-onUnmounted(() => {
-  document.body.classList.remove('force-white-header')
-})
+onMounted(fetchData)
 </script>
 
 <template>
@@ -585,34 +629,4 @@ th.highlight-column {
 .status-line { display: flex; align-items: center; font-size: 0.85rem; margin: 6px 0; color: #000; font-weight: 600; }
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
-</style>
-
-<style>
-/* OVERRIDE GLOBAL DU HEADER
-  Ne s'active QUE sur cette page grâce à la classe sur le body !
-*/
-body.force-white-header .cube-header .main-nav {
-  background-color: #ffffff !important;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
-  border-bottom: 1px solid transparent !important;
-}
-
-/* On force les textes en noir */
-body.force-white-header .cube-header .main-link,
-body.force-white-header .cube-header .shop-link,
-body.force-white-header .cube-header .icon-btn {
-  color: #000000 !important;
-}
-
-/* Mais on garde quand même ton bel effet bleu au survol ! */
-body.force-white-header .cube-header .main-link:hover,
-body.force-white-header .cube-header .shop-link:hover,
-body.force-white-header .cube-header .icon-btn:hover {
-  color: #00a8e8 !important;
-}
-
-/* On force le logo en noir */
-body.force-white-header .cube-header .logo-img {
-  filter: invert(100%) !important;
-}
 </style>

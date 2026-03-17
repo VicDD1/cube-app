@@ -1,69 +1,116 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
 
-// ID client statique pour l'exemple (à remplacer par ton auth plus tard)
-const idClient = ref(1) 
-const cart = ref(null)
+// null = Visiteur non connecté. (À remplacer par votre variable d'authentification)
+const idClient = ref(null) 
+const cart = ref({ lignePaniers: [] }) // Initialisé vide par défaut
 const loading = ref(true)
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 
-// Calcul du total HT/TTC
+// --- CALCUL DU TOTAL ---
 const totalCart = computed(() => {
   if (!cart.value?.lignePaniers) return 0
   return cart.value.lignePaniers.reduce((acc, item) => acc + (item.prixUnitaire * item.quantiteSelectionnee), 0)
 })
-
+// --- CHARGEMENT DU PANIER ---
 const fetchCart = async () => {
   loading.value = true
   try {
-    // 1. On récupère le panier actif
-    const res = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`)
-    if (!res.ok) throw new Error("Panier vide ou introuvable")
-    const data = await res.json()
-    
-    // 2. On récupère les détails complets (avec les lignes)
-    const detailsRes = await fetch(`${API_BASE}/Panier/GetDetails/${data.idPanier}`)
-    cart.value = await detailsRes.json()
+    if (!idClient.value) {
+      // 1. VISITEUR
+      const localCart = JSON.parse(localStorage.getItem('panierVisiteur'))
+      cart.value = (localCart && localCart.lignePaniers) ? localCart : { lignePaniers: [] }
+    } else {
+      // 2. CLIENT CONNECTÉ
+      const res = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`)
+      
+      if (res.status === 404) {
+        cart.value = { lignePaniers: [] }
+      } else if (res.ok) {
+        const data = await res.json()
+        const detailsRes = await fetch(`${API_BASE}/Panier/GetDetails/${data.idPanier}`)
+        cart.value = await detailsRes.json()
+      }
+    }
+
+    // 3. RÉCUPÉRATION DES NOMS DES ARTICLES
+    if (cart.value.lignePaniers && cart.value.lignePaniers.length > 0) {
+      await Promise.all(cart.value.lignePaniers.map(async (item) => {
+        try {
+          const artRes = await fetch(`${API_BASE}/Articles/GetArticleDetails/${item.reference.trim()}`)
+          if (artRes.ok) {
+            const artData = await artRes.json()
+            item.nomArticle = artData.nomArticle
+          }
+        } catch (e) {
+          console.error(`Erreur récupération nom pour ${item.reference}:`, e)
+        }
+      }))
+    }
+
   } catch (err) {
-    console.error("Erreur panier:", err)
+    console.error("Erreur chargement panier:", err)
   } finally {
     loading.value = false
   }
 }
 
+// --- MISE À JOUR DES QUANTITÉS ---
 const updateQuantity = async (item, delta) => {
   const newQty = item.quantiteSelectionnee + delta
   if (newQty <= 0) return removeItem(item)
 
-  try {
-    const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...item, quantiteSelectionnee: newQty })
-    })
-    if (response.ok) fetchCart()
-  } catch (err) {
-    console.error("Erreur update:", err)
+  if (!idClient.value) {
+    // VISITEUR : Mise à jour locale
+    item.quantiteSelectionnee = newQty
+    localStorage.setItem('panierVisiteur', JSON.stringify(cart.value))
+  } else {
+    // CLIENT CONNECTÉ : Mise à jour via l'API
+    try {
+      const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...item, quantiteSelectionnee: newQty })
+      })
+      if (response.ok) fetchCart()
+    } catch (err) {
+      console.error("Erreur update:", err)
+    }
   }
 }
 
+// --- SUPPRESSION D'UN ARTICLE ---
 const removeItem = async (item) => {
-  if (!confirm("Supprimer cet article ?")) return
-  try {
-    await fetch(`${API_BASE}/LignePanier/DeleteLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
-      method: 'DELETE'
-    })
-    fetchCart()
-  } catch (err) {
-    console.error("Erreur suppression:", err)
+  if (!confirm("Voulez-vous vraiment retirer cet article ?")) return
+
+  if (!idClient.value) {
+    // VISITEUR : Suppression locale
+    cart.value.lignePaniers = cart.value.lignePaniers.filter(
+      i => !(i.reference === item.reference && i.tailleSelectionnee === item.tailleSelectionnee)
+    )
+    localStorage.setItem('panierVisiteur', JSON.stringify(cart.value))
+  } else {
+    // CLIENT CONNECTÉ : Suppression via l'API
+    try {
+      await fetch(`${API_BASE}/LignePanier/DeleteLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
+        method: 'DELETE'
+      })
+      fetchCart()
+    } catch (err) {
+      console.error("Erreur suppression:", err)
+    }
   }
 }
 
-// Utilitaire pour l'image (même logique que ta page produit)
+// --- UTILITAIRE IMAGE ---
 const getImageUrl = (ref) => {
   const folder = ref.length === 6 ? 'VELOS' : 'ACCESSOIRES'
-  return new URL(`../assets/images/${folder}/${ref}/image_1.webp`, import.meta.url).href
+  try {
+    return new URL(`../assets/images/${folder}/${ref}/image_1.webp`, import.meta.url).href
+  } catch(e) {
+    return 'https://via.placeholder.com/150?text=Image+Indisponible'
+  }
 }
 
 onMounted(fetchCart)
@@ -71,92 +118,431 @@ onMounted(fetchCart)
 
 <template>
   <div class="cart-page">
-    <h1 class="cart-title">VOTRE PANIER : <span>{{ cart?.lignePaniers?.length || 0 }}</span> article(s)</h1>
+    <div class="cart-header">
+      <h1 class="cart-title">VOTRE PANIER</h1>
+      <span class="item-count">{{ cart?.lignePaniers?.length || 0 }} article(s)</span>
+    </div>
 
-    <div v-if="loading" class="loader">Chargement...</div>
+    <div v-if="loading" class="loader">
+      <div class="spinner"></div>
+      Chargement de votre panier...
+    </div>
 
     <div v-else-if="cart && cart.lignePaniers.length > 0" class="cart-grid">
-      <div class="cart-items">
-        <div v-for="item in cart.lignePaniers" :key="item.reference + item.tailleSelectionnee" class="cart-item">
-          <img :src="getImageUrl(item.reference)" class="item-img" />
-          
-          <div class="item-info">
-            <h4>{{ item.reference }}</h4>
-            <p class="item-size">TAILLE: {{ item.tailleSelectionnee }}</p>
-            <button @click="removeItem(item)" class="remove-btn">Supprimer</button>
-          </div>
+      <div class="cart-items-container">
+        <div class="cart-items">
+          <div v-for="item in cart.lignePaniers" :key="item.reference + item.tailleSelectionnee" class="cart-item">
+            <div class="item-img-wrapper">
+              <img :src="getImageUrl(item.reference)" class="item-img" />
+            </div>
+            
+            <div class="item-details">
+              <div class="item-info">
+                <h4>{{ item.nomArticle || item.reference }}</h4>
+                <p class="item-size">Taille : <span>{{ item.tailleSelectionnee }}</span></p>
+                <button @click="removeItem(item)" class="remove-btn">Retirer du panier</button>
+              </div>
 
-          <div class="item-qty">
-            <button @click="updateQuantity(item, -1)">-</button>
-            <span>{{ item.quantiteSelectionnee }}</span>
-            <button @click="updateQuantity(item, 1)">+</button>
-          </div>
-
-          <div class="item-price">
-            {{ (item.prixUnitaire * item.quantiteSelectionnee).toLocaleString() }} €
+              <div class="item-actions">
+                <div class="item-qty">
+                  <button @click="updateQuantity(item, -1)" class="qty-btn minus">-</button>
+                  <span class="qty-value">{{ item.quantiteSelectionnee }}</span>
+                  <button @click="updateQuantity(item, 1)" class="qty-btn plus">+</button>
+                </div>
+                
+                <div class="item-price">
+                  {{ (item.prixUnitaire * item.quantiteSelectionnee).toLocaleString() }} €
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="cart-summary">
         <div class="summary-box">
-          <h3>RÉSUMÉ</h3>
-          <div class="summary-row">
-            <span>Sous-total</span>
-            <span>{{ totalCart.toLocaleString() }} €</span>
+          <h3>RÉSUMÉ DE LA COMMANDE</h3>
+          
+          <div class="summary-details">
+            <div class="summary-row">
+              <span>Sous-total HT</span>
+              <span>{{ (totalCart / 1.2).toFixed(2) }} €</span>
+            </div>
+            <div class="summary-row">
+              <span>TVA (20%)</span>
+              <span>{{ (totalCart - (totalCart / 1.2)).toFixed(2) }} €</span>
+            </div>
+            <div class="summary-row delivery">
+              <span>Frais de livraison</span>
+              <span class="free-badge">OFFERTS</span>
+            </div>
           </div>
-          <div class="summary-row">
-            <span>Livraison</span>
-            <span class="free">OFFERTE</span>
-          </div>
+
           <div class="summary-total">
-            <span>TOTAL TTC</span>
-            <span>{{ totalCart.toLocaleString() }} €</span>
+            <span class="total-label">TOTAL TTC</span>
+            <span class="total-amount">{{ totalCart.toLocaleString() }} €</span>
           </div>
-          <button class="checkout-btn">PASSER À LA CAISSE</button>
+          
+          <button class="checkout-btn">
+            VALIDER MON PANIER
+            <span class="btn-icon">→</span>
+          </button>
+          
+          <div class="secure-payment">
+             Paiement 100% sécurisé
+          </div>
         </div>
       </div>
     </div>
 
     <div v-else class="empty-cart">
-      <p>Votre panier est tristement vide...</p>
-      <router-link to="/" class="back-shop">RETOUR AU SHOP</router-link>
+      <div class="empty-icon">🛒</div>
+      <h2>Votre panier est vide</h2>
+      <p>Découvrez nos nouveautés et trouvez l'équipement parfait.</p>
+      <router-link to="/" class="back-shop-btn">Continuer mes achats</router-link>
     </div>
   </div>
 </template>
 
 <style scoped>
-.cart-page { max-width: 1400px; margin: 120px auto; padding: 0 40px; font-family: 'Inter', sans-serif; margin-top: 10%;}
-.cart-title { font-size: 3rem; font-weight: 900; font-style: italic; margin-bottom: 50px; }
-.cart-title span { color: #888; font-style: normal; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap');
 
-.cart-grid { display: grid; grid-template-columns: 1fr 350px; gap: 60px; }
+.cart-page { 
+  max-width: 1300px; 
+  margin: 140px auto 80px; 
+  padding: 0 30px; 
+  font-family: 'Inter', sans-serif; 
+  color: #1a1a1a;
+}
 
-/* Items */
-.cart-item { display: grid; grid-template-columns: 120px 1fr 120px 120px; align-items: center; gap: 20px; padding: 25px 0; border-bottom: 1px solid #eee; }
-.item-img { width: 100%; height: 100px; object-fit: contain; background: #f9f9f9; }
-.item-info h4 { font-weight: 900; text-transform: uppercase; margin: 0; }
-.item-size { font-size: 0.8rem; color: #888; margin: 5px 0; }
-.remove-btn { background: none; border: none; text-decoration: underline; font-size: 0.7rem; cursor: pointer; padding: 0; }
+/* --- EN-TÊTE --- */
+.cart-header {
+  display: flex;
+  align-items: baseline;
+  gap: 15px;
+  margin-bottom: 40px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 15px;
+}
+.cart-title { 
+  font-size: 2.8rem; 
+  font-weight: 900; 
+  font-style: italic; 
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  margin: 0;
+}
+.item-count {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #666;
+  background: #f5f5f5;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
 
-.item-qty { display: flex; align-items: center; gap: 15px; border: 1px solid #ddd; padding: 5px; justify-content: center; }
-.item-qty button { border: none; background: none; font-weight: bold; cursor: pointer; width: 25px; }
-.item-price { font-weight: 900; text-align: right; font-size: 1.1rem; }
+/* --- GRILLE PRINCIPALE --- */
+.cart-grid { 
+  display: grid; 
+  grid-template-columns: 1fr 400px; 
+  gap: 60px; 
+  align-items: start;
+}
 
-/* Summary */
-.summary-box { background: #f5f5f5; padding: 30px; position: sticky; top: 120px; }
-.summary-box h3 { font-weight: 900; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-.summary-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: 600; }
-.free { color: #00ff00; font-weight: 800; }
-.summary-total { display: flex; justify-content: space-between; margin-top: 25px; padding-top: 20px; border-top: 2px solid #000; font-weight: 900; font-size: 1.4rem; }
+/* --- LISTE DES ARTICLES --- */
+.cart-items {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
 
-.checkout-btn { width: 100%; background: #000; color: #fff; border: none; padding: 20px; font-weight: 900; font-style: italic; margin-top: 30px; cursor: pointer; clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); transition: 0.3s; }
-.checkout-btn:hover { background: #333; transform: scale(1.03); }
+.cart-item { 
+  display: flex;
+  gap: 30px; 
+  padding: 24px; 
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+.cart-item:hover {
+  border-color: #ddd;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+}
 
-.empty-cart { text-align: center; padding: 100px 0; }
-.back-shop { display: inline-block; margin-top: 20px; font-weight: 900; color: #000; border-bottom: 3px solid #000; text-decoration: none; }
+.item-img-wrapper {
+  width: 140px;
+  height: 140px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 15px;
+  flex-shrink: 0;
+}
+.item-img { 
+  width: 100%; 
+  height: 100%; 
+  object-fit: contain; 
+}
 
-@media (max-width: 1000px) {
+.item-details {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.item-info h4 { 
+  font-weight: 900; 
+  font-size: 1.3rem;
+  margin: 0 0 8px 0; 
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+}
+.item-size { 
+  font-size: 0.95rem; 
+  color: #666; 
+  margin: 0 0 12px 0; 
+}
+.item-size span {
+  font-weight: 600;
+  color: #000;
+}
+
+.remove-btn { 
+  background: none; 
+  border: none; 
+  color: #999;
+  font-size: 0.85rem; 
+  font-weight: 500;
+  cursor: pointer; 
+  padding: 0; 
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s;
+}
+.remove-btn:hover { color: #ff3333; }
+
+.item-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 15px;
+}
+
+/* Sélecteur de quantité */
+.item-qty { 
+  display: flex; 
+  align-items: center; 
+  background: #f5f5f5; 
+  border-radius: 30px;
+  padding: 4px;
+}
+.qty-btn { 
+  border: none; 
+  background: #fff; 
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-weight: 600; 
+  font-size: 1.2rem;
+  cursor: pointer; 
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.qty-btn:hover { color: #00a8e8; transform: scale(1.05); }
+.qty-value {
+  width: 40px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.item-price { 
+  font-weight: 900; 
+  font-size: 1.4rem; 
+  letter-spacing: -0.5px;
+}
+
+/* --- RÉSUMÉ DE COMMANDE --- */
+.summary-box { 
+  background: #f8f9fa; 
+  padding: 35px; 
+  border-radius: 16px;
+  position: sticky; 
+  top: 140px; 
+}
+.summary-box h3 { 
+  font-weight: 900; 
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0;
+  margin-bottom: 25px; 
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.summary-details {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.summary-row { 
+  display: flex; 
+  justify-content: space-between; 
+  font-size: 0.95rem;
+  color: #555; 
+}
+.summary-row.delivery {
+  padding-top: 15px;
+  border-top: 1px dashed #ddd;
+}
+
+.free-badge { 
+  color: #fff; 
+  background: #00a8e8;
+  font-weight: 800; 
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+
+.summary-total { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  padding: 25px 0; 
+  border-top: 2px solid #000; 
+  border-bottom: 2px solid #000; 
+  margin-bottom: 30px;
+}
+.total-label {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.total-amount {
+  font-weight: 900; 
+  font-size: 2rem; 
+  letter-spacing: -1px;
+}
+
+.checkout-btn { 
+  width: 100%; 
+  background: #000; 
+  color: #fff; 
+  border: none; 
+  padding: 20px; 
+  font-weight: 900; 
+  font-size: 1.1rem;
+  border-radius: 8px;
+  cursor: pointer; 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease; 
+}
+.checkout-btn:hover { 
+  background: #00a8e8; 
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 168, 232, 0.2);
+}
+.btn-icon {
+  font-size: 1.4rem;
+  transition: transform 0.3s;
+}
+.checkout-btn:hover .btn-icon {
+  transform: translateX(5px);
+}
+
+.secure-payment {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 20px;
+  font-weight: 500;
+}
+
+/* --- PANIER VIDE --- */
+.empty-cart { 
+  text-align: center; 
+  padding: 100px 20px; 
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 16px;
+  max-width: 600px;
+  margin: 40px auto;
+}
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+.empty-cart h2 {
+  font-weight: 900;
+  font-size: 2rem;
+  margin: 0 0 10px 0;
+}
+.empty-cart p { 
+  font-size: 1.1rem; 
+  color: #666; 
+  margin-bottom: 35px; 
+}
+.back-shop-btn { 
+  display: inline-block; 
+  background: #000;
+  color: #fff;
+  padding: 15px 30px;
+  font-weight: 800; 
+  border-radius: 8px;
+  text-decoration: none; 
+  transition: all 0.3s;
+}
+.back-shop-btn:hover { 
+  background: #00a8e8; 
+  transform: translateY(-2px);
+}
+
+/* --- LOADER --- */
+.loader { 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 100px; 
+  font-weight: 700; 
+  color: #666; 
+}
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #00a8e8;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* --- RESPONSIVE --- */
+@media (max-width: 1024px) {
   .cart-grid { grid-template-columns: 1fr; }
+  .summary-box { position: static; margin-top: 40px; }
+  .cart-header { flex-direction: column; gap: 5px; }
+}
+
+@media (max-width: 600px) {
+  .cart-item { flex-direction: column; gap: 20px; text-align: center; align-items: center;}
+  .item-actions { width: 100%; flex-direction: column; align-items: center; gap: 20px; }
+  .item-img-wrapper { width: 100%; max-width: 200px; }
 }
 </style>
