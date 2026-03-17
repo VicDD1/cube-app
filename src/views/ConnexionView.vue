@@ -79,14 +79,9 @@ const handleLogin = async () => {
         // 2. Vérification du mot de passe (L'API renvoie le hash $2a$)
         let isMatch = false;
 
-        if (userData.mdp && userData.mdp.startsWith('$2b$')) {
-            // Le mot de passe en base est crypté, on utilise compareSync
-            isMatch = bcrypt.compareSync(cleanPassword, userData.mdp);
-        } else {
-            // Cas particulier : si le mot de passe est encore en clair (ex: tes anciens tests)
-            isMatch = (cleanPassword === userData.mdp);
-        }
-
+        
+        
+        isMatch = bcrypt.compareSync(cleanPassword, userData.mdp);
         if (isMatch) {
             // 3. Succès : Stockage dans Pinia et redirection
             store.login(userData);

@@ -141,14 +141,14 @@ import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import bcrypt from 'bcryptjs';
 
-const confirmPassword = ref(''); // Nouveau champ
-const showPassword = ref(false); // État pour afficher/cacher
+const confirmPassword = ref('');
+const showPassword = ref(false);
 const router = useRouter();
 const sameAddress = ref(true);
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
-const suggestions = ref([]); // Stocke les résultats de l'API Gouv
+const suggestions = ref([]);
 
 const form = reactive({
   nom: '',
@@ -166,7 +166,7 @@ const form = reactive({
   pays: 'France'
 });
 
-// --- LOGIQUE AUTOCOMPLÉTION ---
+// --- LOGIQUE AUTOCOMPLÉTION (API GOUV) ---
 const onAddressInput = async (query) => {
   if (!query || query.length < 4) {
     suggestions.value = [];
@@ -196,19 +196,29 @@ const selectAdresse = (feature, type) => {
 
 // --- LOGIQUE INSCRIPTION ---
 const handleRegistration = async () => {
-  // 1. Vérification de correspondance des mots de passe
+  // 1. Validation de base
   if (form.password !== confirmPassword.value) {
     isError.value = true;
     feedback.value = "LES MOTS DE PASSE NE CORRESPONDENT PAS.";
-    return; // On arrête tout ici
+    return;
   }
+
   if (loading.value) return;
   loading.value = true;
-  feedback.value = ""; // On vide au départ
+  feedback.value = "VÉRIFICATION..."; 
   isError.value = false;
 
   try {
-    // PHASE 1 : ADRESSE FACTURATION
+    // 2. VÉRIFICATION DOUBLON EMAIL
+    const cleanEmail = form.email.trim().toLowerCase();
+    const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
+    
+    // Si l'API répond OK (200), cela signifie que l'email existe déjà
+    if (checkRes.ok) {
+      throw new Error("CETTE ADRESSE EMAIL EST DÉJÀ UTILISÉE.");
+    }
+
+    // 3. PHASE 1 : CRÉATION ADRESSE FACTURATION
     const resAddr = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -220,23 +230,22 @@ const handleRegistration = async () => {
         pays: "France"
       })
     });
-    if (!resAddr.ok) throw new Error("Erreur lors de la création de l'adresse.");
+    if (!resAddr.ok) throw new Error("Erreur lors de la création de l'adresse de facturation.");
     const adrFactData = await resAddr.json();
 
-    // PHASE 2 : CLIENT
+    // 4. PHASE 2 : CRÉATION CLIENT (Avec MDP Haché)
     const salt = bcrypt.genSaltSync(10);
     const hashedMdp = bcrypt.hashSync(form.password, salt);
-    const dateISO = new Date().toISOString().split('T')[0];
 
     const clientPayload = {
       idClient: 0,
       idAdresseFacturation: adrFactData.idAdresse,
-      nomClient: form.nom.trim(),
+      nomClient: form.nom.trim().toUpperCase(),
       prenomClient: form.prenomClient.trim(),
-      emailClient: form.email.trim(),
+      emailClient: cleanEmail,
       mdp: hashedMdp,
       tel: String(form.telephone || "").replace(/\s/g, "").substring(0, 10),
-      dateInscription: dateISO, 
+      dateInscription: new Date().toISOString().split('T')[0], 
       dateNaissance: form.dateNaissance,
       role: "client"
     };
@@ -246,11 +255,13 @@ const handleRegistration = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clientPayload)
     });
-    if (!resClient.ok) throw new Error("L'email est déjà utilisé ou les données sont invalides.");
+    
+    if (!resClient.ok) throw new Error("Erreur lors de la création du compte client.");
     const clientData = await resClient.json();
 
-    // PHASE 3 : ADRESSE LIVRAISON
-    let adrLivFinalData = adrFactData;
+    // 5. PHASE 3 : GESTION ADRESSE LIVRAISON
+    let adrLivId = adrFactData.idAdresse;
+
     if (!sameAddress.value) {
       const resAddrLiv = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
         method: 'POST',
@@ -263,34 +274,34 @@ const handleRegistration = async () => {
           pays: "France"
         })
       });
-      if (resAddrLiv.ok) adrLivFinalData = await resAddrLiv.json();
+      if (resAddrLiv.ok) {
+        const adrLivData = await resAddrLiv.json();
+        adrLivId = adrLivData.idAdresse;
+      }
     }
 
-    // PHASE 4 : LIAISON
+    // 6. PHASE 4 : LIAISON ADRESSE LIVRAISON / CLIENT
     const resLiaison = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         idClient: clientData.idClient,
-        idAdresse: adrLivFinalData.idAdresse,
+        idAdresse: adrLivId,
         nomDestinataire: form.nom.trim(),
         prenomDestinataire: form.prenomClient.trim()
       })
     });
 
-    // SEUL FEEDBACK CONSERVÉ : LE SUCCÈS FINAL
     if (resLiaison.ok) {
-      isError.value = false;
       feedback.value = "COMPTE CRÉÉ AVEC SUCCÈS ! REDIRECTION...";
-      
-     // Nettoyage et redirection après 2 secondes
       setTimeout(() => {  
-        router.push('/login'); // Redirige vers la page de login
+        router.push('/login');
       }, 2000);
+    } else {
+        throw new Error("Erreur lors de la liaison de l'adresse de livraison.");
     }
 
   } catch (err) {
-    // On garde les feedbacks d'erreurs car ils sont nécessaires
     isError.value = true;
     feedback.value = err.message;
   } finally {
