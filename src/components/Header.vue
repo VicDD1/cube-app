@@ -3,11 +3,9 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Store, Search, User, ShoppingCart } from 'lucide-vue-next'
 import StoreLocator from './StoreLocator.vue'
-import { useAppStore } from '../stores/useStore'
 
 const baseUrl = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net'
 const router = useRouter()
-const appStore = useAppStore()
 
 // On indique 'hasMenu: false' pour empêcher le menu blanc de s'ouvrir sur Aide et Contact
 const navigationLinks = [
@@ -33,14 +31,9 @@ let hoverTimeout = null
 const storeLocatorRef = ref(null)
 const magasinChoisi = ref(null)
 
-const openStoreLocator = () => {
-  storeLocatorRef.value?.toggle()
-}
-
-const handleStoreSelection = (magasin) => {
-  console.log("Global Store mis à jour avec :", magasin)
-  appStore.setMagasin(magasin) 
-}
+const openStoreLocator = () => { storeLocatorRef.value?.toggle() }
+const handleStoreSelection = (magasin) => { magasinChoisi.value = magasin.nomAffiche }
+// --------------------------
 
 const getId = (item) => item.idCategorieAccessoire || item.idCategorie || item.IdCategorie || item.IDCATEGORIE || item.idModele || item.IdModele || item.reference || item.Reference || item.id || Math.random()
 const getName = (item) => item.nomCategorieAccessoire || item.nomCategorie || item.NomCategorie || item.NOMCATEGORIE || item.nomModele || item.NomModele || item.nom || item.Nom || 'Inconnu'
@@ -272,15 +265,18 @@ const cancelClear = () => {
 
       <div class="nav-actions">
         <a href="#" class="shop-link" @click.prevent="openStoreLocator">
-          {{ appStore.magasinChoisi ? appStore.magasinChoisi.nomAffiche : 'CHOISIR UN MAGASIN' }} 
-          <Store :size="18" :stroke-width="2" />
+          {{ magasinChoisi ? magasinChoisi : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
         </a>
         <button class="icon-btn"><Search :size="20" :stroke-width="2" /></button>
         <router-link to="/connexion" class="icon-btn"><User :size="20" :stroke-width="2" /></router-link>
         <div class="cart-container">
           <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
           <span class="cart-badge">0</span>
-        </div> </div> </div> </header>
+        </div>
+      </div>
+
+    </div>
+  </header>
 
   <StoreLocator ref="storeLocatorRef" @storeSelected="handleStoreSelection" />
 </template>
@@ -294,7 +290,6 @@ const cancelClear = () => {
   font-family: Arial, sans-serif;
 }
 
-/* 🔴 LE HEADER FONCÉ */
 .main-nav {
   position: relative;
   display: flex;
@@ -302,14 +297,14 @@ const cancelClear = () => {
   gap: 50px;
   height: 120px;
   padding: 0 40px;
-  background-color: rgba(20, 20, 20, 0.95);
+  background-color: rgba(0, 0, 0, 0.4);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   transition: background-color 0.3s ease, border-bottom 0.3s ease;
 }
 
 .main-nav:hover {
-  background-color: #111;
-  border-bottom: 1px solid #222;
+  background-color: #fff;
+  border-bottom: 1px solid #eaeaea;
 }
 
 .nav-links {
@@ -324,12 +319,24 @@ const cancelClear = () => {
 .icon-btn {
   text-decoration: none;
   color: #fff;
-  font-weight: 800;
+  font-weight: 900; 
   font-style: italic;
   transition: color 0.3s ease;
-  font-size: 14px;
+  font-size: 16px; 
   letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+.main-nav:hover .main-link,
+.main-nav:hover .shop-link,
+.main-nav:hover .icon-btn {
+  color: #000;
+}
+
+.main-link:hover,
+.shop-link:hover,
+.icon-btn:hover {
+  color: #00a8e8 !important;
 }
 
 .main-link {
@@ -352,15 +359,15 @@ const cancelClear = () => {
   width: 100%;
 }
 
-.main-link:hover,
-.shop-link:hover,
-.icon-btn:hover {
-  color: #00a8e8 !important;
-}
-
+/* Le logo de base */
 .logo-img {
   height: 45px;
   transition: filter 0.3s ease;
+}
+
+/* L'inversion du logo en noir quand le header est survolé */
+.main-nav:hover .logo-img {
+  filter: invert(100%);
 }
 
 .nav-actions {
@@ -384,7 +391,7 @@ const cancelClear = () => {
   padding: 0;
   display: flex;
   align-items: center;
-  color: #fff;
+  /* La couleur de base est héritée au-dessus, pas besoin de forcer en blanc ici */
 }
 
 .cart-container {
@@ -423,7 +430,7 @@ const cancelClear = () => {
   padding: 60px 80px;
   min-height: 400px;
   box-sizing: border-box;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
   border-top: 1px solid #eaeaea;
   cursor: default;
   z-index: 100;
