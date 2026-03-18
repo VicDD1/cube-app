@@ -18,7 +18,7 @@ const router = createRouter({
         {
             path: '/creer-compte',
             name: 'creer-compte',
-            component: () => import('../views/CreerCompteView.vue')
+            component: () => import('../views/CreateAcomptView.vue')
         },
         {
             path: '/velos-electriques',
@@ -77,7 +77,7 @@ const router = createRouter({
             meta: { 
                 requiresAuth: true, 
                 requiresRole: 'commercial' 
-              }
+            }
         },
         {
             path: '/espace-commercial/ajouter-categorie',
@@ -96,23 +96,21 @@ router.beforeEach((to, from, next) => {
     const store = useAppStore()
     
     if (!store.isConnected && localStorage.getItem('user')) {
-      store.loadPersistedStore()
+        store.loadPersistedStore()
     }
-  
+
     if (to.meta.requiresAuth) {
-      
-      if (!store.isConnected) {
-        return next('/connexion') 
-      }
-      
-      if (to.meta.requiresRole) {
-        if (store.user?.role !== to.meta.requiresRole) {
-          return next('/') 
+        if (!store.isConnected) {
+            return next('/connexion') 
         }
-      }
+        if (to.meta.requiresRole) {
+            if (store.user?.role !== to.meta.requiresRole) {
+                return next('/') 
+            }
+        }
     }
     
     next()
-  })
+})
 
 export default router
