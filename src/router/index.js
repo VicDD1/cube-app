@@ -61,6 +61,16 @@ const router = createRouter({
             component: () => import('../views/CartView.vue'),
         },
         {
+            path: '/aide',
+            name: 'Help',
+            component : () => import('../views/help.vue')
+        },
+        {
+            path: '/contact',
+            name: 'contact',
+            component : () => import('../views/contact.vue')
+        },
+        {
             path: '/espace-commercial',
             name: 'commercial',
             component: () => import('../views/AdminViews/CommercialView.vue'),

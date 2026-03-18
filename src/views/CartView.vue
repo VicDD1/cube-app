@@ -1,18 +1,66 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
-import { useAppStore } from '../stores/useStore' // Import du store
+import { useAppStore } from '../stores/useStore'
 
-const appStore = useAppStore() // Initialisation du store
+const appStore = useAppStore()
 const idClient = ref(null) 
 const cart = ref({ lignePaniers: [] })
 const loading = ref(true)
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 
-const totalCart = computed(() => {
+// --- GESTION DES CODES PROMO ---
+const promoCodeInput = ref('')
+const appliedPromo = ref(null)
+const promoMessage = ref({ type: '', text: '' })
+
+// 1. Calcul du sous-total (avant réduction)
+const subTotalCart = computed(() => {
   if (!cart.value?.lignePaniers) return 0
   return cart.value.lignePaniers.reduce((acc, item) => acc + (item.prixUnitaire * item.quantiteSelectionnee), 0)
 })
+
+// 2. Calcul du montant de la réduction
+const discountAmount = computed(() => {
+  if (!appliedPromo.value) return 0
+  return subTotalCart.value * appliedPromo.value.pourcentage
+})
+
+// 3. Calcul du total final (après réduction)
+const finalTotalCart = computed(() => {
+  return subTotalCart.value - discountAmount.value
+})
+
+const applyPromoCode = async () => {
+  promoMessage.value = { type: '', text: '' }
+  const code = promoCodeInput.value.trim().toUpperCase()
+  
+  if (!code) return
+  
+  try {
+    const res = await fetch(`${API_BASE}/CodePromo/GetByCode/${code}`)
+    if (res.ok) {
+      const data = await res.json()
+      appliedPromo.value = {
+        code: data.idCodepromo.trim(),
+        pourcentage: data.pourcentage
+      }
+      promoMessage.value = { type: 'success', text: `Code appliqué : -${data.pourcentage * 100}%` }
+      promoCodeInput.value = ''
+    } else {
+      promoMessage.value = { type: 'error', text: 'Code promo invalide ou expiré.' }
+    }
+  } catch (err) {
+    console.error("Erreur promo:", err)
+    promoMessage.value = { type: 'error', text: 'Erreur lors de la vérification du code.' }
+  }
+}
+
+const removePromo = () => {
+  appliedPromo.value = null
+  promoMessage.value = { type: '', text: '' }
+}
+// -------------------------------
 
 const fetchCart = async () => {
   loading.value = true
@@ -46,7 +94,6 @@ const fetchCart = async () => {
       }))
     }
     
-    // MISE À JOUR PASTILLE
     appStore.updateCartCount(idClient.value)
 
   } catch (err) {
@@ -63,7 +110,7 @@ const updateQuantity = async (item, delta) => {
   if (!idClient.value) {
     item.quantiteSelectionnee = newQty
     localStorage.setItem('panierVisiteur', JSON.stringify(cart.value))
-    appStore.updateCartCount(null) // MISE À JOUR PASTILLE
+    appStore.updateCartCount(null)
   } else {
     try {
       const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
@@ -86,7 +133,7 @@ const removeItem = async (item) => {
       i => !(i.reference === item.reference && i.tailleSelectionnee === item.tailleSelectionnee)
     )
     localStorage.setItem('panierVisiteur', JSON.stringify(cart.value))
-    appStore.updateCartCount(null) // MISE À JOUR PASTILLE
+    appStore.updateCartCount(null)
   } else {
     try {
       await fetch(`${API_BASE}/LignePanier/DeleteLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
@@ -161,12 +208,35 @@ onMounted(fetchCart)
           <div class="summary-details">
             <div class="summary-row">
               <span>Sous-total HT</span>
-              <span>{{ (totalCart / 1.2).toFixed(2) }} €</span>
+              <span>{{ (subTotalCart / 1.2).toFixed(2) }} €</span>
             </div>
             <div class="summary-row">
               <span>TVA (20%)</span>
-              <span>{{ (totalCart - (totalCart / 1.2)).toFixed(2) }} €</span>
+              <span>{{ (subTotalCart - (subTotalCart / 1.2)).toFixed(2) }} €</span>
             </div>
+
+            <div class="promo-section">
+              <div v-if="!appliedPromo" class="promo-input-group">
+                <input 
+                  v-model="promoCodeInput" 
+                  type="text" 
+                  placeholder="Code promo" 
+                  @keyup.enter="applyPromoCode"
+                />
+                <button @click="applyPromoCode">OK</button>
+              </div>
+              <div v-else class="applied-promo">
+                <span>Code <strong>{{ appliedPromo.code }}</strong> (-{{ appliedPromo.pourcentage * 100 }}%)</span>
+                <button @click="removePromo" class="remove-promo-btn" title="Retirer le code">✕</button>
+              </div>
+
+            </div>
+
+            <div v-if="appliedPromo" class="summary-row discount-row">
+              <span>Remise promotionnelle</span>
+              <span>- {{ discountAmount.toFixed(2) }} €</span>
+            </div>
+
             <div class="summary-row delivery">
               <span>Frais de livraison</span>
               <span class="free-badge">OFFERTS</span>
@@ -175,7 +245,7 @@ onMounted(fetchCart)
 
           <div class="summary-total">
             <span class="total-label">TOTAL TTC</span>
-            <span class="total-amount">{{ totalCart.toLocaleString() }} €</span>
+            <span class="total-amount">{{ finalTotalCart.toLocaleString() }} €</span>
           </div>
           
           <button class="checkout-btn">
@@ -191,7 +261,6 @@ onMounted(fetchCart)
     </div>
 
     <div v-else class="empty-cart">
-   
       <h2>Votre panier est vide</h2>
       <p>Découvrez nos nouveautés et trouvez l'équipement parfait.</p>
       <router-link to="/" class="back-shop-btn">Continuer mes achats</router-link>
@@ -399,8 +468,87 @@ onMounted(fetchCart)
 }
 .summary-row.delivery {
   padding-top: 15px;
-  border-top: 1px dashed #ddd;
 }
+
+/* --- CODE PROMO --- */
+.promo-section {
+  margin: 10px 0;
+  padding: 15px 0;
+  border-top: 1px dashed #ddd;
+  border-bottom: 1px dashed #ddd;
+}
+.promo-input-group {
+  display: flex;
+  gap: 10px;
+}
+.promo-input-group input {
+  flex-grow: 1;
+  padding: 12px 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.promo-input-group input:focus {
+  border-color: #00a8e8;
+}
+.promo-input-group button {
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 0 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 800;
+  transition: background 0.3s;
+}
+.promo-input-group button:hover {
+  background: #00a8e8;
+}
+
+.applied-promo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 168, 232, 0.1);
+  color: #00a8e8;
+  padding: 12px 15px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.applied-promo strong {
+  font-weight: 900;
+}
+.remove-promo-btn {
+  background: none;
+  border: none;
+  color: #00a8e8;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 1.1rem;
+  transition: transform 0.2s;
+}
+.remove-promo-btn:hover {
+  transform: scale(1.2);
+}
+
+.promo-msg {
+  font-size: 0.8rem;
+  margin: 10px 0 0;
+  font-weight: 600;
+}
+.promo-msg.error { color: #ff3333; }
+.promo-msg.success { color: #216ed3; }
+
+.discount-row {
+  color: #10b981;
+  font-weight: 700;
+}
+/* ------------------ */
 
 .free-badge { 
   color: #fff; 
@@ -477,11 +625,6 @@ onMounted(fetchCart)
   border-radius: 16px;
   max-width: 600px;
   margin: 40px auto;
-}
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 20px;
-  opacity: 0.5;
 }
 .empty-cart h2 {
   font-weight: 900;
