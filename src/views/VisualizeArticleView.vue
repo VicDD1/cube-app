@@ -4,36 +4,179 @@ import { useRoute, useRouter } from 'vue-router'
 import StoreLocator from '../components/StoreLocator.vue'
 import { useAppStore } from '../stores/useStore'
 
-
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 
+const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
+
+// --- RÉFÉRENCES RÉACTIVES ---
 const reference = computed(() => route.params.id?.trim())
 const article = ref(null)
 const caracteristiques = ref([])
 const inventaire = ref([])
 const variantesCouleurs = ref([])
-const loading = ref(true)
-
-
+const variantesBatteries = ref([])
 const batterieInfo = ref(null)
+const loading = ref(true)
+const currentImgIndex = ref(1)
 const showCartModal = ref(false)
 const sizeError = ref(false)
+const idClient = ref(null) 
 
-const idClient = ref(null); 
-const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api';
+const tableauGeometrie = ref({})
+const listeTailles = ref([])
 
-const currentImgIndex = ref(1)
+// --- DISPONIBILITÉ ---
 const isVelo = computed(() => reference.value?.length === 6)
 const folder = computed(() => isVelo.value ? 'VELOS' : 'ACCESSOIRES')
+const selectedTaille = ref(null)
 
+const isAvailableOnline = computed(() => (selectedTaille.value?.quantiteStockEnLigne || 0) > 0)
+
+const isAvailableInCurrentStore = computed(() => {
+  if (!selectedTaille.value || !appStore.magasinChoisi || !selectedTaille.value.inventaireMagasins) return false
+  const stockMagasin = selectedTaille.value.inventaireMagasins.find(m => m.idMagasin === appStore.magasinChoisi.idMagasin)
+  return (stockMagasin?.quantiteStockMagasin || 0) > 0
+})
+
+const isAvailableInOtherStores = computed(() => {
+  if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
+  return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0 && m.idMagasin !== appStore.magasinChoisi?.idMagasin)
+})
+
+const isAvailableInAnyStore = computed(() => {
+  if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
+  return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0)
+})
+
+// --- ACTIONS ---
+const storeButtonText = computed(() => {
+  return !appStore.magasinChoisi ? '» AJOUTER UN MAGASIN' : '» CHANGER DE MAGASIN'
+})
+
+const storeLocatorRef = ref(null)
+const openStoreLocator = () => { storeLocatorRef.value?.toggle() }
+const handleStoreSelection = (magasin) => { appStore.setMagasin(magasin) }
+
+const handleStoreAction = () => {
+  if (!selectedTaille.value) {
+    sizeError.value = true
+    setTimeout(() => { sizeError.value = false }, 600)
+  } else {
+    openStoreLocator()
+  }
+}
+
+// --- GALERIE ---
 const getLocalImage = (ref, index) => {
   try {
     return new URL(`../assets/images/${folder.value}/${ref}/image_${index}.webp`, import.meta.url).href
   } catch (e) {
     return 'https://via.placeholder.com/600x400?text=Image+Indisponible'
   }
+}
+
+const nextImage = () => {
+  if (currentImgIndex.value < 4) currentImgIndex.value++
+  else currentImgIndex.value = 1
+}
+const prevImage = () => {
+  if (currentImgIndex.value > 1) currentImgIndex.value--
+  else currentImgIndex.value = 4
+}
+
+const selectTaille = (item) => { 
+  selectedTaille.value = item 
+  sizeError.value = false 
+}
+
+const isZoomOpen = ref(false)
+
+const openZoom = () => {
+  isZoomOpen.value = true
+  document.body.style.overflow = 'hidden' // Empêche le scroll derrière
+}
+
+const closeZoom = () => {
+  isZoomOpen.value = false
+  document.body.style.overflow = ''
+}
+
+// --- GÉOMÉTRIE ---
+const fetchGeometries = async (idModele, tailles) => {
+  const geoData = {}
+  for (const taille of tailles) {
+    try {
+      const res = await fetch(`${API_BASE}/AGeometrie/GetByModeleAndTaille/${idModele}/${taille.idTaille}`)
+      const data = await res.json()
+      data.forEach(item => {
+        const nom = item.idGeometrieNavigation.nomGeometrie
+        if (!geoData[nom]) geoData[nom] = {}
+        geoData[nom][taille.idTaille] = item.valeurGeometrie
+      })
+    } catch (e) { console.error("Erreur géo pour taille " + taille.idTaille, e) }
+  }
+  tableauGeometrie.value = geoData
+}
+
+// --- DATA ---
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const cleanRef = reference.value
+    const endpoint = isVelo.value ? 'VarianteVelo/GetFullDetails' : 'Accessoire/GetDetails'
+    
+    const [resDetail, resCarac, resInv] = await Promise.all([
+      fetch(`${API_BASE}/${endpoint}/${cleanRef}`),
+      fetch(`${API_BASE}/ACaracteristique/GetByArticle/${cleanRef}`),
+      fetch(`${API_BASE}/Articles/GetStock/${cleanRef}`)
+    ])
+
+    article.value = await resDetail.json()
+    caracteristiques.value = await resCarac.json()
+    const stockData = await resInv.json()
+    inventaire.value = stockData.articleInventaires 
+
+    if (isVelo.value && article.value?.idModele) {
+      const resModel = await fetch(`${API_BASE}/Modele/GetDetails/${article.value.idModele}`)
+      const modelData = await resModel.json()
+      const allVariantes = modelData.varianteVelos || []
+
+      // 1. COULEURS
+      variantesCouleurs.value = allVariantes.filter(v => v.idBatterie === article.value.idBatterie)
+
+      // 2. BATTERIES
+      const batteriesUniques = new Set()
+      variantesBatteries.value = allVariantes
+        .filter(v => {
+          const capacity = v.idBatterieNavigation?.capaciteBatterie
+          if (capacity && !batteriesUniques.has(capacity)) {
+            batteriesUniques.add(capacity)
+            return true
+          }
+          return false
+        })
+        .sort((a, b) => a.idBatterieNavigation.capaciteBatterie - b.idBatterieNavigation.capaciteBatterie)
+
+      // 3. Infos batterie actuelle (pour résumé en haut si besoin)
+      if (article.value.idBatterie) {
+        const resBatt = await fetch(`${API_BASE}/Batterie/GetById/${article.value.idBatterie}`)
+        if (resBatt.ok) {
+            batterieInfo.value = await resBatt.json()
+        }
+      }
+
+      // 4. PRÉPARATION TAILLES ET APPEL GÉOMÉTRIE (Ajouté ici)
+      listeTailles.value = inventaire.value.map(i => ({
+         idTaille: i.idTaille,
+         nom: i.idTailleNavigation.taille1.trim()
+      }))
+      
+      // On appelle enfin les géométries
+      await fetchGeometries(article.value.idModele, listeTailles.value)
+    }
+  } catch (err) { console.error(err) } finally { loading.value = false }
 }
 
 const fichesTechniquesGroupees = computed(() => {
@@ -46,203 +189,15 @@ const fichesTechniquesGroupees = computed(() => {
   return groupes
 })
 
-const nextImage = () => {
-  if (currentImgIndex.value < 4) currentImgIndex.value++
-  else currentImgIndex.value = 1
-}
-const prevImage = () => {
-  if (currentImgIndex.value > 1) currentImgIndex.value--
-  else currentImgIndex.value = 4
-}
-
-const storeLocatorRef = ref(null)
-const openStoreLocator = () => { storeLocatorRef.value?.toggle() }
-const handleStoreSelection = (magasin) => { appStore.setMagasin(magasin) }
-
-const selectedTaille = ref(null)
-const isAvailableOnline = computed(() => (selectedTaille.value?.quantiteStockEnLigne || 0) > 0)
-const isAvailableInCurrentStore = computed(() => {
-  if (!selectedTaille.value || !appStore.magasinChoisi || !selectedTaille.value.inventaireMagasins) return false
-  const stockMagasin = selectedTaille.value.inventaireMagasins.find(m => m.idMagasin === appStore.magasinChoisi.idMagasin)
-  return (stockMagasin?.quantiteStockMagasin || 0) > 0
-})
-const isAvailableInOtherStores = computed(() => {
-  if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
-  return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0 && m.idMagasin !== appStore.magasinChoisi?.idMagasin)
-})
-const isAvailableInAnyStore = computed(() => {
-  if (!selectedTaille.value || !selectedTaille.value.inventaireMagasins) return false
-  return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0)
-})
-
-const selectTaille = (item) => { 
-  selectedTaille.value = item 
-  sizeError.value = false 
-}
-
-const storeButtonText = computed(() => {
-  if (!appStore.magasinChoisi) return '» AJOUTER UN MAGASIN';
-  return '» CHANGER DE MAGASIN';
-})
-
-const handleStoreAction = () => {
-  if (!selectedTaille.value) {
-    sizeError.value = true
-    setTimeout(() => { sizeError.value = false }, 600)
-  } else {
-    openStoreLocator()
-  }
-}
-
-const addToCart = async () => {
-  if (!selectedTaille.value) {
-    sizeError.value = true
-    setTimeout(() => { sizeError.value = false }, 600)
-    return;
-  }
-
-  if (!idClient.value) {
-    let panierLocal = JSON.parse(localStorage.getItem('panierVisiteur')) || { lignePaniers: [] };
-    const indexExistant = panierLocal.lignePaniers.findIndex(
-      item => item.reference === reference.value && item.tailleSelectionnee === selectedTaille.value.idTailleNavigation.taille1.trim()
-    );
-    if (indexExistant > -1) {
-      panierLocal.lignePaniers[indexExistant].quantiteSelectionnee += 1;
-    } else {
-      panierLocal.lignePaniers.push({
-        reference: reference.value,
-        nomArticle: article.value.nomArticle, 
-        tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
-        quantiteSelectionnee: 1,
-        prixUnitaire: article.value.prix
-      });
-    }
-    localStorage.setItem('panierVisiteur', JSON.stringify(panierLocal));
-    
-    appStore.updateCartCount(null); 
-    showCartModal.value = true; 
-    return;
-  }
-
-  try {
-    let vraiIdPanier = null;
-    const cartRes = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`);
-
-    if (cartRes.ok) {
-      const cartData = await cartRes.json();
-      vraiIdPanier = cartData.idPanier;
-    } else {
-      const newCartRes = await fetch(`${API_BASE}/Panier/PostPanier`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idPanier: 0, idClient: idClient.value }) 
-      });
-      if (newCartRes.ok) {
-        const newCartData = await newCartRes.json();
-        vraiIdPanier = newCartData.idPanier || newCartData.id;
-      } else {
-        console.error("Erreur création panier");
-        return;
-      }
-    }
-
-    const payload = {
-      idPanier: vraiIdPanier, 
-      reference: reference.value,
-      tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
-      quantiteSelectionnee: 1,
-      prixUnitaire: article.value.prix
-    };
-
-    const response = await fetch(`${API_BASE}/LignePanier/PostLignePanier`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.ok) {
-      appStore.updateCartCount(idClient.value);
-      showCartModal.value = true;
-    }
-  } catch (err) {
-    console.error("Erreur ajout panier:", err);
-  }
-};
-
 const activeSection = ref('TECH')
 const toggleSection = (s) => activeSection.value = activeSection.value === s ? null : s
 
-const tableauGeometrie = ref({})
-const listeTailles = ref([])
-
-const fetchGeometries = async (idModele, tailles) => {
-  const geoData = {}
-  for (const taille of tailles) {
-    try {
-      const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AGeometrie/GetByModeleAndTaille/${idModele}/${taille.idTaille}`)
-      const data = await res.json()
-      data.forEach(item => {
-        const nom = item.idGeometrieNavigation.nomGeometrie
-        if (!geoData[nom]) geoData[nom] = {}
-        geoData[nom][taille.idTaille] = item.valeurGeometrie
-      })
-    } catch (e) { console.error(e) }
-  }
-  tableauGeometrie.value = geoData
-}
-
-const fetchData = async () => {
-  loading.value = true
-  try {
-    const cleanRef = reference.value
-    const endpoint = isVelo.value ? 'VarianteVelo/GetFullDetails' : 'Accessoire/GetDetails'
-    
-    const [resDetail, resCarac, resInv] = await Promise.all([
-      fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/${endpoint}/${cleanRef}`),
-      fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ACaracteristique/GetByArticle/${cleanRef}`),
-      fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Articles/GetStock/${cleanRef}`)
-    ])
-
-    article.value = await resDetail.json()
-    caracteristiques.value = await resCarac.json()
-    
-    const stockData = await resInv.json()
-    inventaire.value = stockData.articleInventaires 
-
-    if (isVelo.value && article.value?.idModele) {
-      const resModel = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Modele/GetDetails/${article.value.idModele}`)
-      const modelData = await resModel.json()
-      variantesCouleurs.value = modelData.varianteVelos || []
-        // RÉCUPÉRATION BATTERIE VIA ID DU MODÈLE
-      if (modelData.idBatterie) {
-        try {
-          const resBatt = await fetch(`${API_BASE}/Batterie/GetById/${modelData.idBatterie}`)
-          if (resBatt.ok) {
-            batterieInfo.value = await resBatt.json()
-          }
-        } catch (err) {
-          console.error("Erreur lors de la récupération de la batterie:", err)
-        }
-      }
-            listeTailles.value = inventaire.value.map(i => ({
-         idTaille: i.idTaille,
-         nom: i.idTailleNavigation.taille1.trim()
-      }))
-      await fetchGeometries(article.value.idModele, listeTailles.value)
-    }
-  } catch (err) { 
-    console.error("Erreur fetchData:", err) 
-  } finally { 
-    loading.value = false 
-  }
-}
-
 watch(reference, () => {
-    fetchData();
-    currentImgIndex.value = 1;
-    selectedTaille.value = null;
-    sizeError.value = false;
-    batterieInfo.value = null;
+    fetchData()
+    currentImgIndex.value = 1
+    selectedTaille.value = null
+    sizeError.value = false
+    batterieInfo.value = null
 })
 
 onMounted(fetchData)
@@ -254,10 +209,21 @@ onMounted(fetchData)
     <div class="product-hero">
       <div class="gallery-column">
         <div class="main-image-wrapper">
-          <button class="nav-btn prev" @click="prevImage">&#10216;</button>
-          <img :src="getLocalImage(reference, currentImgIndex)" class="main-view" />
-          <button class="nav-btn next" @click="nextImage">&#10217;</button>
-        </div>
+  <button class="nav-btn prev" @click="prevImage">&#10216;</button>
+  <img 
+    :src="getLocalImage(reference, currentImgIndex)" 
+    class="main-view zoom-cursor" 
+    @click="openZoom" 
+  />
+  <button class="nav-btn next" @click="nextImage">&#10217;</button>
+</div>
+
+<div class="zoom-overlay" v-if="isZoomOpen" @click="closeZoom">
+  <button class="close-zoom">✖</button>
+  <div class="zoom-container" @click.stop>
+    <img :src="getLocalImage(reference, currentImgIndex)" class="zoom-img" />
+  </div>
+</div>
         <div class="thumbnails-row">
           <img 
             v-for="i in 4" :key="i"
@@ -277,16 +243,14 @@ onMounted(fetchData)
             <div class="accordion-content" v-show="activeSection === 'TECH'">
               <div class="tech-table">
                 
-                <div v-if="batterieInfo" class="tech-group">
-                  <h3 class="group-title">BATTERIE</h3>
+                <div v-if="article.idBatterieNavigation" class="tech-group">
                   <div class="tech-row">
                     <span class="tech-label">Capacité</span>
-                    <span class="tech-value">{{ batterieInfo.capacite }} Wh</span>
+                    <span class="tech-value">{{ article.idBatterieNavigation.capaciteBatterie }} Wh</span>
                   </div>
                 </div>
 
                 <div v-for="(items, groupName) in fichesTechniquesGroupees" :key="groupName" class="tech-group">
-                  <h3 class="group-title">{{ groupName }}</h3>
                   <div v-for="item in items" :key="item.idCaracteristique" class="tech-row">
                     <span class="tech-label">{{ item.idCaracteristiqueNavigation?.nomCaracteristique }}</span>
                     <span class="tech-value">{{ item.valeurCaracteristique }}</span>
@@ -450,19 +414,20 @@ onMounted(fetchData)
             </RouterLink>
           </div>
         </div>
-          <div class="battery-section" v-if="batterieInfo">
-    <h3 class="section-label">DÉTAILS ÉLECTRIQUES</h3>
-    <div class="battery-card">
-      <div class="battery-row">
-        <span class="batt-label">Modèle :</span>
-        <span class="batt-val">{{ batterieInfo.nomBatterie || 'Standard' }}</span>
-      </div>
-      <div class="battery-row">
-        <span class="batt-label">Capacité :</span>
-        <span class="batt-val">{{ batterieInfo.capacite }} Wh</span>
-      </div>
-    </div>
-  </div>
+        <div class="battery-section" v-if="variantesBatteries.length > 0">
+          <h3 class="section-label">BATTERIE :</h3>
+          <div class="battery-grid">
+            <RouterLink 
+              v-for="v in variantesBatteries" 
+              :key="v.reference"
+              :to="{ name: 'visualize', params: { id: v.reference.trim() }}"
+              class="battery-box"
+              :class="{ 'active': v.idBatterie === article.idBatterie }"
+            >
+              {{ v.idBatterieNavigation.capaciteBatterie }} WH
+            </RouterLink>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -500,42 +465,7 @@ onMounted(fetchData)
 }
 .needs-size .section-label { color: #ff3333; transition: color 0.3s; }
 .needs-size .size-box { border-color: #ff3333; background-color: #fffafa; transition: all 0.3s; }
-.battery-section {
-  margin-top: 30px;
-  padding-top: 20px;
-  border-top: 1px solid #ddd;
-}
 
-.battery-card {
-  background: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
-
-.battery-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 0.95rem;
-}
-
-.battery-row:last-child {
-  margin-bottom: 0;
-}
-
-.batt-label {
-  font-weight: 700;
-  color: #666;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-}
-
-.batt-val {
-  font-weight: 900;
-  color: #000;
-}
 /* Galerie */
 .main-image-wrapper { position: relative; background: #fff; display: flex; justify-content: center; align-items: center; min-height: 500px; border: 1px solid #f0f0f0; }
 .main-view { max-width: 90%; max-height: 500px; object-fit: contain; }
@@ -622,6 +552,96 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .btn-continue:hover { background: #e0e0e0; }
 .btn-cart { background: #000; color: #fff; }
 .btn-cart:hover { background: #00a8e8; }
+
+.battery-section {
+  margin: 25px 0;
+}
+
+.battery-grid {
+  display: flex;
+  gap: 12px;
+}
+
+.battery-box {
+  text-decoration: none;
+  border: 1px solid #e0e0e0;
+  padding: 12px 25px;
+  font-weight: 900;
+  font-style: italic;
+  background: #fff;
+  color: #ccc; /* Texte gris par défaut (non sélectionné) */
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.battery-box.active {
+  border: 2px solid #000;
+  color: #000; /* Texte noir si actif */
+}
+
+.battery-box:hover:not(.active) {
+  border-color: #999;
+  color: #666;
+}
+
+/* Curseur loupe sur l'image principale */
+.zoom-cursor {
+  cursor: zoom-in;
+  transition: transform 0.3s ease;
+}
+.zoom-cursor:hover {
+  transform: scale(1.02);
+}
+
+/* Modale de Zoom */
+.zoom-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.98); /* Fond blanc pur très opaque */
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: zoom-out;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.zoom-container {
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.zoom-img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  box-shadow: 0 10px 50px rgba(0,0,0,0.1);
+  cursor: default;
+}
+
+.close-zoom {
+  position: absolute;
+  top: 30px;
+  right: 40px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #000;
+  z-index: 2100;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .modal-actions { flex-direction: column; } }
