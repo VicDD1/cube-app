@@ -545,7 +545,7 @@ onMounted(fetchCart)
 .promo-msg.success { color: #216ed3; }
 
 .discount-row {
-  color: hsl(219, 67%, 42%);
+  color: #10b981;
   font-weight: 700;
 }
 /* ------------------ */
