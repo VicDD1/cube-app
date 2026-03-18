@@ -2,11 +2,11 @@
   <main class="connexion-page">
     <div class="auth-card">
       <header class="card-header">
-        <h1>CRÉER UN COMPTE</h1>
+        <h1>{{ step === 1 ? 'CRÉER UN COMPTE' : 'VÉRIFICATION' }}</h1>
         <div class="separator"></div>
       </header>
       
-      <form @submit.prevent="handleRegistration">
+      <form v-if="step === 1" @submit.prevent="handleRegistration">
         <div class="row">
           <div class="field-group">
             <label>NOM</label>
@@ -129,9 +129,44 @@
         </transition>
 
         <button type="submit" :disabled="loading" class="submit-btn">
-          {{ loading ? 'ENREGISTREMENT...' : 'S\'INSCRIRE MAINTENANT' }}
+          {{ loading ? 'ENVOI DU CODE...' : 'RECEVOIR MON CODE' }}
         </button>
       </form>
+
+      <div v-else class="verification-container">
+        <p class="verification-info">
+          Un code de sécurité a été envoyé à l'adresse : <br>
+          <strong>{{ form.email }}</strong>
+        </p>
+        
+        <div class="field-group">
+          <label>CODE À 6 CHIFFRES</label>
+          <input 
+            type="text" 
+            v-model="userEnteredCode" 
+            placeholder="000000" 
+            maxlength="6" 
+            class="code-input"
+            required
+          >
+        </div>
+
+        <transition name="fade">
+          <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">
+            {{ feedback }}
+          </div>
+        </transition>
+
+        <div class="button-group">
+          <button @click="confirmAndCreateAccount" :disabled="loading" class="submit-btn">
+            {{ loading ? 'VÉRIFICATION...' : 'VALIDER L\'INSCRIPTION' }}
+          </button>
+          <button @click="step = 1" class="back-btn" :disabled="loading">
+            RETOUR
+          </button>
+        </div>
+      </div>
+
     </div>
   </main>
 </template>
@@ -140,15 +175,23 @@
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import bcrypt from 'bcryptjs';
+import emailjs from '@emailjs/browser';
 
-const confirmPassword = ref('');
-const showPassword = ref(false);
 const router = useRouter();
-const sameAddress = ref(true);
+
+// --- ÉTATS DE L'INTERFACE ---
+const step = ref(1); // 1: Formulaire, 2: Saisie du code de validation
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
+const showPassword = ref(false);
+const sameAddress = ref(true);
 const suggestions = ref([]);
+
+// --- LOGIQUE DE SÉCURITÉ ---
+const generatedCode = ref('');
+const userEnteredCode = ref('');
+const confirmPassword = ref('');
 
 const form = reactive({
   nom: '',
@@ -166,7 +209,7 @@ const form = reactive({
   pays: 'France'
 });
 
-// --- LOGIQUE AUTOCOMPLÉTION (API GOUV) ---
+// --- AUTOCOMPLÉTION ADRESSE (API GOUV) ---
 const onAddressInput = async (query) => {
   if (!query || query.length < 4) {
     suggestions.value = [];
@@ -177,7 +220,7 @@ const onAddressInput = async (query) => {
     const data = await response.json();
     suggestions.value = data.features;
   } catch (err) {
-    console.error("Erreur suggestions:", err);
+    console.error("Erreur API Adresse:", err);
   }
 };
 
@@ -194,31 +237,76 @@ const selectAdresse = (feature, type) => {
   suggestions.value = []; 
 };
 
-// --- LOGIQUE INSCRIPTION ---
+// --- ÉTAPE 1 : VÉRIFICATION EMAIL ET ENVOI DU CODE ---
 const handleRegistration = async () => {
-  // 1. Validation de base
+  // Validation des mots de passe
   if (form.password !== confirmPassword.value) {
     isError.value = true;
     feedback.value = "LES MOTS DE PASSE NE CORRESPONDENT PAS.";
     return;
   }
 
-  if (loading.value) return;
   loading.value = true;
-  feedback.value = "VÉRIFICATION..."; 
   isError.value = false;
+  feedback.value = "VÉRIFICATION EN COURS...";
 
   try {
-    // 2. VÉRIFICATION DOUBLON EMAIL
     const cleanEmail = form.email.trim().toLowerCase();
-    const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
     
-    // Si l'API répond OK (200), cela signifie que l'email existe déjà
+    // 1. Vérifier si l'email existe déjà
+    const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
     if (checkRes.ok) {
       throw new Error("CETTE ADRESSE EMAIL EST DÉJÀ UTILISÉE.");
     }
 
-    // 3. PHASE 1 : CRÉATION ADRESSE FACTURATION
+    // 2. Générer le code à 6 chiffres
+    generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3. Préparer les paramètres pour EmailJS
+    // C'est ici qu'on ajoute to_name pour ton template !
+  const templateParams = {
+    to_name: form.prenomClient.trim(), // Correspond à {{to_name}}
+    to_email: form.email.toLowerCase(), // Correspond à {{to_email}}
+    code: String(generatedCode.value)   // Correspond à {{code}}
+  };
+
+    // 4. Envoyer le mail (Remplace par tes IDs réels)
+    await emailjs.send(
+  'service_ues7qi8', // Ton Service ID (Email Services)
+  'template_by4mad9', // Ton Template ID (Email Templates)
+  {
+    to_name: form.prenomClient.trim(),
+    to_email: form.email.trim().toLowerCase(),
+    code: String(generatedCode.value)
+  },
+  '9lPdrD2WOpVRdpwJO' // Ta Public Key (Account > API Keys)
+);
+
+    // 5. Passer à l'étape suivante
+    step.value = 2;
+    feedback.value = "UN CODE DE SÉCURITÉ A ÉTÉ ENVOYÉ.";
+
+  } catch (err) {
+    isError.value = true;
+    feedback.value = err.message || "ERREUR LORS DE L'ENVOI DU MAIL.";
+  } finally {
+    loading.value = false;
+  }
+};
+
+// --- ÉTAPE 2 : VALIDATION DU CODE ET CRÉATION RÉELLE EN BASE ---
+const confirmAndCreateAccount = async () => {
+  if (userEnteredCode.value !== generatedCode.value) {
+    isError.value = true;
+    feedback.value = "CODE INCORRECT.";
+    return;
+  }
+
+  loading.value = true;
+  feedback.value = "CRÉATION DE VOTRE COMPTE...";
+
+  try {
+    // PHASE A : CRÉER L'ADRESSE DE FACTURATION
     const resAddr = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -230,10 +318,10 @@ const handleRegistration = async () => {
         pays: "France"
       })
     });
-    if (!resAddr.ok) throw new Error("Erreur lors de la création de l'adresse de facturation.");
+    if (!resAddr.ok) throw new Error("Erreur adresse facturation.");
     const adrFactData = await resAddr.json();
 
-    // 4. PHASE 2 : CRÉATION CLIENT (Avec MDP Haché)
+    // PHASE B : CRÉER LE CLIENT (MDP HACHÉ)
     const salt = bcrypt.genSaltSync(10);
     const hashedMdp = bcrypt.hashSync(form.password, salt);
 
@@ -242,9 +330,9 @@ const handleRegistration = async () => {
       idAdresseFacturation: adrFactData.idAdresse,
       nomClient: form.nom.trim().toUpperCase(),
       prenomClient: form.prenomClient.trim(),
-      emailClient: cleanEmail,
+      emailClient: form.email.trim().toLowerCase(),
       mdp: hashedMdp,
-      tel: String(form.telephone || "").replace(/\s/g, "").substring(0, 10),
+      tel: String(form.telephone || "").replace(/\s/g, ""),
       dateInscription: new Date().toISOString().split('T')[0], 
       dateNaissance: form.dateNaissance,
       role: "client"
@@ -255,13 +343,11 @@ const handleRegistration = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clientPayload)
     });
-    
-    if (!resClient.ok) throw new Error("Erreur lors de la création du compte client.");
+    if (!resClient.ok) throw new Error("Erreur création client.");
     const clientData = await resClient.json();
 
-    // 5. PHASE 3 : GESTION ADRESSE LIVRAISON
-    let adrLivId = adrFactData.idAdresse;
-
+    // PHASE C : GÉRER L'ADRESSE DE LIVRAISON
+    let finalLivId = adrFactData.idAdresse;
     if (!sameAddress.value) {
       const resAddrLiv = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
         method: 'POST',
@@ -276,30 +362,28 @@ const handleRegistration = async () => {
       });
       if (resAddrLiv.ok) {
         const adrLivData = await resAddrLiv.json();
-        adrLivId = adrLivData.idAdresse;
+        finalLivId = adrLivData.idAdresse;
       }
     }
 
-    // 6. PHASE 4 : LIAISON ADRESSE LIVRAISON / CLIENT
-    const resLiaison = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
+    // PHASE D : LIAISON LIVRAISON
+    await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         idClient: clientData.idClient,
-        idAdresse: adrLivId,
-        nomDestinataire: form.nom.trim(),
+        idAdresse: finalLivId,
+        nomDestinataire: form.nom.trim().toUpperCase(),
         prenomDestinataire: form.prenomClient.trim()
       })
     });
 
-    if (resLiaison.ok) {
-      feedback.value = "COMPTE CRÉÉ AVEC SUCCÈS ! REDIRECTION...";
-      setTimeout(() => {  
-        router.push('/login');
-      }, 2000);
-    } else {
-        throw new Error("Erreur lors de la liaison de l'adresse de livraison.");
-    }
+    isError.value = false;
+    feedback.value = "COMPTE CRÉÉ AVEC SUCCÈS ! REDIRECTION...";
+    
+    setTimeout(() => {
+      router.push('/login');
+    }, 2000);
 
   } catch (err) {
     isError.value = true;
