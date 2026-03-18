@@ -35,6 +35,16 @@
         <button type="submit" :disabled="loading" class="submit-btn">
             {{ loading ? 'VÉRIFICATION...' : 'SE CONNECTER' }}
         </button>
+        <div class="google-divider">
+            <span>OU</span>
+        </div>
+        
+        <div class="google-auth-container">
+            <GoogleSignInButton
+                @success="handleGoogleSuccess"
+                @error="handleGoogleError"
+            />
+        </div>
         </form>
     </div>
     </main>
@@ -43,7 +53,8 @@
 import { ref } from 'vue';
 import { useAppStore } from '../stores/useStore';
 import { useRouter } from 'vue-router';
-import bcrypt from 'bcryptjs'; // Import crucial pour la comparaison
+import bcrypt from 'bcryptjs';
+import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 
 const store = useAppStore();
 const router = useRouter();
@@ -54,6 +65,51 @@ const showPassword = ref(false);
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
+
+const handleGoogleSuccess = async (response) => {
+    const { credential } = response;
+    const userDataGoogle = decodeCredential(credential);
+    
+    loading.value = true;
+    isError.value = false;
+    feedback.value = "VÉRIFICATION GOOGLE...";
+
+    try {
+        const cleanEmail = userDataGoogle.email.trim().toLowerCase();
+
+        // On cherche l'utilisateur dans ta base Azure
+        const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
+
+        if (!res.ok) {
+            throw new Error("AUCUN COMPTE ASSOCIÉ À CET EMAIL GOOGLE. VEUILLEZ VOUS INSCRIRE.");
+        }
+
+        const userData = await res.json();
+
+        // CONNEXION RÉUSSIE (Pas besoin de bcrypt ici, Google est la preuve de confiance)
+        store.login(userData);
+        feedback.value = `RAVI DE VOUS REVOIR, ${userData.prenomClient} !`;
+
+        setTimeout(() => {
+            if (userData.role === 'commercial') {
+                router.push('/espace-commercial');
+            } else {
+                router.push('/');
+            }
+        }, 1500);
+
+    } catch (err) {
+        isError.value = true;
+        feedback.value = err.message;
+    } finally {
+        loading.value = false;
+    }
+};
+
+const handleGoogleError = () => {
+    isError.value = true;
+    feedback.value = "L'AUTHENTIFICATION GOOGLE A ÉCHOUÉ.";
+};
 
 const handleLogin = async () => {
     if (loading.value) return;
@@ -146,6 +202,32 @@ const handleLogin = async () => {
   /* Optionnel : ajoute une marge basse pour être sûr de ne pas coller au footer sur mobile */
   margin-bottom: 20px;
 }
+
+.google-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+  color: #888;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.google-divider::before, .google-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.google-divider span {
+  padding: 0 10px;
+}
+
+.google-auth-container {
+  display: flex;
+  justify-content: center;
+}
+
 .card-header h1 {
   font-size: 22px;
   font-weight: 800;

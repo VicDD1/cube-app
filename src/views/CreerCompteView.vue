@@ -131,6 +131,17 @@
         <button type="submit" :disabled="loading" class="submit-btn">
           {{ loading ? 'ENVOI DU CODE...' : 'RECEVOIR MON CODE' }}
         </button>
+
+        <div class="google-divider">
+          <span>OU</span>
+        </div>
+
+        <div class="google-auth-container">
+          <GoogleSignInButton
+            @success="handleGoogleSuccess"
+            @error="handleGoogleError"
+          />
+        </div>
       </form>
 
       <div v-else class="verification-container">
@@ -175,6 +186,7 @@
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import bcrypt from 'bcryptjs';
+import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 import emailjs from '@emailjs/browser';
 
 const router = useRouter();
@@ -187,6 +199,7 @@ const isError = ref(false);
 const showPassword = ref(false);
 const sameAddress = ref(true);
 const suggestions = ref([]);
+const googleIdValue = ref(null); // Pour stocker le "sub" de Google
 
 // --- LOGIQUE DE SÉCURITÉ ---
 const generatedCode = ref('');
@@ -208,6 +221,49 @@ const form = reactive({
   villeLivraison: '',
   pays: 'France'
 });
+const handleGoogleSuccess = async (response) => {
+  const { credential } = response;
+  const userData = decodeCredential(credential);
+  googleIdValue.value = userData.sub;  // Décode Nom, Prénom, Email
+
+  loading.value = true;
+  isError.value = false;
+  feedback.value = "VÉRIFICATION DU COMPTE GOOGLE...";
+
+  try {
+    const cleanEmail = userData.email.trim().toLowerCase();
+    
+    // Vérifier si l'utilisateur existe déjà dans ta base Azure
+    const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
+    
+    if (checkRes.ok) {
+      // Cas A : L'utilisateur existe, on simule une connexion
+      feedback.value = "CONNEXION RÉUSSIE !";
+      setTimeout(() => router.push('/dashboard'), 1500);
+    } else {
+      // Cas B : Nouvel utilisateur, on pré-remplit le formulaire
+      form.email = cleanEmail;
+      form.nom = userData.family_name ? userData.family_name.toUpperCase() : '';
+      form.prenomClient = userData.given_name || '';
+      
+      // On génère un mot de passe aléatoire caché puisque c'est du OAuth
+      form.password = Math.random().toString(36).slice(-10);
+      confirmPassword.value = form.password;
+
+      feedback.value = "COMPTE GOOGLE RECONNU. VEUILLEZ COMPLÉTER VOTRE ADRESSE.";
+    }
+  } catch (err) {
+    isError.value = true;
+    feedback.value = "ERREUR LORS DE LA LIAISON GOOGLE.";
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handleGoogleError = () => {
+  isError.value = true;
+  feedback.value = "ÉCHEC DE L'AUTHENTIFICATION GOOGLE.";
+};
 
 // --- AUTOCOMPLÉTION ADRESSE (API GOUV) ---
 const onAddressInput = async (query) => {
@@ -335,7 +391,8 @@ const confirmAndCreateAccount = async () => {
       tel: String(form.telephone || "").replace(/\s/g, ""),
       dateInscription: new Date().toISOString().split('T')[0], 
       dateNaissance: form.dateNaissance,
-      role: "client"
+      role: "client",
+      googleId: googleIdValue.value
     };
 
     const resClient = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient', {
@@ -422,6 +479,31 @@ const confirmAndCreateAccount = async () => {
   font-weight: 800;
   cursor: pointer;
   transition: color 0.2s;
+}
+
+.google-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+  color: #888;
+  font-size: 10px;
+}
+
+.google-divider::before, .google-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.google-divider span {
+  padding: 0 10px;
+}
+
+.google-auth-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
 }
 
 .toggle-btn:hover {
@@ -550,6 +632,38 @@ input:focus {
   font-size: 12px;
   text-align: center;
   font-weight: 800;
+}
+.back-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: transparent;
+  color: #555;
+  border: 2px solid #ddd;
+  font-family: 'CubeFont', sans-serif;
+  font-weight: 800;
+  font-style: italic;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover:not(:disabled) {
+  border-color: #000;
+  color: #000;
+  background-color: #f9f9f9;
+}
+
+.back-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Optionnel : Si tu veux les mettre côte à côte sur grand écran */
+.button-group {
+  display: flex;
+  flex-direction: column; /* Par défaut l'un sur l'autre */
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .error { background-color: #fee2e2; color: #dc2626; border: 1px solid #dc2626; }
