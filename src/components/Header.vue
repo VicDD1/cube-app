@@ -29,9 +29,20 @@ let hoverTimeout = null
 const storeLocatorRef = ref(null)
 const magasinChoisi = ref(null)
 
-const openStoreLocator = () => { storeLocatorRef.value?.toggle() }
-const handleStoreSelection = (magasin) => { magasinChoisi.value = magasin.nomAffiche }
 
+const handleStoreSelection = (magasin) => {
+
+  if (appStore.setMagasin) {
+    appStore.setMagasin(magasin)
+  } else {
+
+    appStore.magasinChoisi = magasin
+  }
+}
+
+const openStoreLocator = () => { 
+  storeLocatorRef.value?.toggle() 
+}
 const getId = (item) => item.idCategorieAccessoire || item.idCategorie || item.IdCategorie || item.IDCATEGORIE || item.idModele || item.IdModele || item.reference || item.Reference || item.id || Math.random()
 const getName = (item) => item.nomCategorieAccessoire || item.nomCategorie || item.NomCategorie || item.NOMCATEGORIE || item.nomModele || item.NomModele || item.nom || item.Nom || 'Inconnu'
 

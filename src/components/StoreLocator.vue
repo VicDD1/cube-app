@@ -46,8 +46,10 @@ const toggle = () => {
 defineExpose({ toggle })
 
 const selectStore = (magasin) => {
+  
   emit('storeSelected', magasin)
   toggle()
+ 
 }
 
 const fetchMagasins = async () => {
