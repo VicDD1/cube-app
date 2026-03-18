@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import { useAppStore } from '@/stores/useStore';
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -58,8 +59,60 @@ const router = createRouter({
             path: '/panier',
             name: 'CartView',
             component: () => import('../views/CartView.vue'),
+        },
+        {
+            path: '/aide',
+            name: 'Help',
+            component : () => import('../views/help.vue')
+        },
+        {
+            path: '/contact',
+            name: 'contact',
+            component : () => import('../views/contact.vue')
+        },
+        {
+            path: '/espace-commercial',
+            name: 'commercial',
+            component: () => import('../views/AdminViews/CommercialView.vue'),
+            meta: { 
+                requiresAuth: true, 
+                requiresRole: 'commercial' 
+              }
+        },
+        {
+            path: '/espace-commercial/ajouter-categorie',
+            name: 'ajouter-categorie',
+            component: () => import('../views/AdminViews/AjouterCategorieView.vue'), // Assure-toi que le fichier est bien dans ce dossier
+            meta: { 
+                requiresAuth: true, 
+                requiresRole: 'commercial' 
+            }
         }
     ]
 })
+
+// LE VIDEUR DE L'APPLICATION
+router.beforeEach((to, from, next) => {
+    const store = useAppStore()
+    
+    if (!store.isConnected && localStorage.getItem('user')) {
+      store.loadPersistedStore()
+    }
+  
+    if (to.meta.requiresAuth) {
+      
+      if (!store.isConnected) {
+        return next('/connexion') 
+      }
+      
+      if (to.meta.requiresRole) {
+        if (store.user?.role !== to.meta.requiresRole) {
+          return next('/') 
+        }
+      }
+    }
+    
+    next()
+  })
 
 export default router
