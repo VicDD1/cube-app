@@ -90,7 +90,12 @@ const handleLogin = async () => {
             feedback.value = "CONNEXION RÉUSSIE !";
 
             setTimeout(() => {
-                router.push('/');
+                // REDIRECTION CONDITIONNELLE SELON LE RÔLE
+                if (userData.role === 'commercial') {
+                    router.push('/espace-commercial');
+                } else {
+                    router.push('/');
+                }
             }, 1500);
         } else {
             // Si l'email existe mais que le hash ne correspond pas
