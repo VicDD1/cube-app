@@ -9,6 +9,7 @@ const router = useRouter()
 const appStore = useAppStore()
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
+const idClient = ref(null) 
 
 // --- RÉFÉRENCES RÉACTIVES ---
 const reference = computed(() => route.params.id?.trim())
@@ -17,20 +18,23 @@ const caracteristiques = ref([])
 const inventaire = ref([])
 const variantesCouleurs = ref([])
 const variantesBatteries = ref([])
+const articlesSimilaires = ref([])
 const batterieInfo = ref(null)
+
 const loading = ref(true)
 const currentImgIndex = ref(1)
 const showCartModal = ref(false)
 const sizeError = ref(false)
-const idClient = ref(null) 
+const isZoomOpen = ref(false)
 
 const tableauGeometrie = ref({})
 const listeTailles = ref([])
+const selectedTaille = ref(null)
+const storeLocatorRef = ref(null)
 
-// --- DISPONIBILITÉ ---
+// --- DISPONIBILITÉ ET AFFICHAGE ---
 const isVelo = computed(() => reference.value?.length === 6)
 const folder = computed(() => isVelo.value ? 'VELOS' : 'ACCESSOIRES')
-const selectedTaille = ref(null)
 
 const isAvailableOnline = computed(() => (selectedTaille.value?.quantiteStockEnLigne || 0) > 0)
 
@@ -50,12 +54,26 @@ const isAvailableInAnyStore = computed(() => {
   return selectedTaille.value.inventaireMagasins.some(m => m.quantiteStockMagasin > 0)
 })
 
-// --- ACTIONS ---
 const storeButtonText = computed(() => {
   return !appStore.magasinChoisi ? '» AJOUTER UN MAGASIN' : '» CHANGER DE MAGASIN'
 })
 
-const storeLocatorRef = ref(null)
+const fichesTechniquesGroupees = computed(() => {
+  const groupes = {}
+  caracteristiques.value.forEach(item => {
+    const groupe = item.idCaracteristiqueNavigation?.idGroupeCaracteristiqueNavigation?.nomGroupe || 'AUTRES'
+    if (!groupes[groupe]) groupes[groupe] = []
+    groupes[groupe].push(item)
+  })
+  return groupes
+})
+
+// --- ACTIONS & MÉTHODES ---
+const selectTaille = (item) => { 
+  selectedTaille.value = item 
+  sizeError.value = false 
+}
+
 const openStoreLocator = () => { storeLocatorRef.value?.toggle() }
 const handleStoreSelection = (magasin) => { appStore.setMagasin(magasin) }
 
@@ -68,42 +86,107 @@ const handleStoreAction = () => {
   }
 }
 
-// --- GALERIE ---
-const getLocalImage = (ref, index) => {
+const addToCart = async () => {
+  if (!selectedTaille.value) {
+    sizeError.value = true
+    setTimeout(() => { sizeError.value = false }, 600)
+    return;
+  }
+
+  // --- Gestion Visiteur (LocalStorage) ---
+  if (!idClient.value) {
+    let panierLocal = JSON.parse(localStorage.getItem('panierVisiteur')) || { lignePaniers: [] };
+    const indexExistant = panierLocal.lignePaniers.findIndex(
+      item => item.reference === reference.value && item.tailleSelectionnee === selectedTaille.value.idTailleNavigation.taille1.trim()
+    );
+    
+    if (indexExistant > -1) {
+      panierLocal.lignePaniers[indexExistant].quantiteSelectionnee += 1;
+    } else {
+      panierLocal.lignePaniers.push({
+        reference: reference.value,
+        nomArticle: article.value.nomArticle, 
+        tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
+        quantiteSelectionnee: 1,
+        prixUnitaire: article.value.prix
+      });
+    }
+    
+    localStorage.setItem('panierVisiteur', JSON.stringify(panierLocal));
+    appStore.updateCartCount(null); 
+    showCartModal.value = true; 
+    return;
+  }
+
+  // --- Gestion Utilisateur Connecté (API) ---
   try {
-    return new URL(`../assets/images/${folder.value}/${ref}/image_${index}.webp`, import.meta.url).href
+    let vraiIdPanier = null;
+    const cartRes = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`);
+
+    if (cartRes.ok) {
+      const cartData = await cartRes.json();
+      vraiIdPanier = cartData.idPanier;
+    } else {
+      const newCartRes = await fetch(`${API_BASE}/Panier/PostPanier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idPanier: 0, idClient: idClient.value }) 
+      });
+      if (newCartRes.ok) {
+        const newCartData = await newCartRes.json();
+        vraiIdPanier = newCartData.idPanier || newCartData.id;
+      } else {
+        console.error("Erreur lors de la création du panier");
+        return;
+      }
+    }
+
+    const payload = {
+      idPanier: vraiIdPanier, 
+      reference: reference.value,
+      tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
+      quantiteSelectionnee: 1,
+      prixUnitaire: article.value.prix
+    };
+
+    const response = await fetch(`${API_BASE}/LignePanier/PostLignePanier`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      appStore.updateCartCount(idClient.value);
+      showCartModal.value = true;
+    }
+  } catch (err) {
+    console.error("Erreur ajout panier:", err);
+  }
+};
+
+// --- GALERIE ---
+const getLocalImage = (itemRef, index) => {
+  const itemFolder = itemRef?.trim().length === 6 ? 'VELOS' : 'ACCESSOIRES'
+  try {
+    return new URL(`../assets/images/${itemFolder}/${itemRef?.trim()}/image_${index}.webp`, import.meta.url).href
   } catch (e) {
     return 'https://via.placeholder.com/600x400?text=Image+Indisponible'
   }
 }
 
-const nextImage = () => {
-  if (currentImgIndex.value < 4) currentImgIndex.value++
-  else currentImgIndex.value = 1
-}
-const prevImage = () => {
-  if (currentImgIndex.value > 1) currentImgIndex.value--
-  else currentImgIndex.value = 4
-}
-
-const selectTaille = (item) => { 
-  selectedTaille.value = item 
-  sizeError.value = false 
-}
-
-const isZoomOpen = ref(false)
+const nextImage = () => { currentImgIndex.value = currentImgIndex.value < 4 ? currentImgIndex.value + 1 : 1 }
+const prevImage = () => { currentImgIndex.value = currentImgIndex.value > 1 ? currentImgIndex.value - 1 : 4 }
 
 const openZoom = () => {
   isZoomOpen.value = true
-  document.body.style.overflow = 'hidden' // Empêche le scroll derrière
+  document.body.style.overflow = 'hidden'
 }
-
 const closeZoom = () => {
   isZoomOpen.value = false
   document.body.style.overflow = ''
 }
 
-// --- GÉOMÉTRIE ---
+// --- GÉOMÉTRIE & DONNÉES ---
 const fetchGeometries = async (idModele, tailles) => {
   const geoData = {}
   for (const taille of tailles) {
@@ -120,33 +203,39 @@ const fetchGeometries = async (idModele, tailles) => {
   tableauGeometrie.value = geoData
 }
 
-// --- DATA ---
 const fetchData = async () => {
   loading.value = true
   try {
     const cleanRef = reference.value
     const endpoint = isVelo.value ? 'VarianteVelo/GetFullDetails' : 'Accessoire/GetDetails'
     
-    const [resDetail, resCarac, resInv] = await Promise.all([
+    const [resDetail, resCarac, resInv, resSimilar] = await Promise.all([
       fetch(`${API_BASE}/${endpoint}/${cleanRef}`),
       fetch(`${API_BASE}/ACaracteristique/GetByArticle/${cleanRef}`),
-      fetch(`${API_BASE}/Articles/GetStock/${cleanRef}`)
+      fetch(`${API_BASE}/Articles/GetStock/${cleanRef}`),
+      fetch(`${API_BASE}/Articles/GetSimilar/${cleanRef}`)
     ])
 
     article.value = await resDetail.json()
     caracteristiques.value = await resCarac.json()
+    
     const stockData = await resInv.json()
     inventaire.value = stockData.articleInventaires 
+
+    if (resSimilar.ok) {
+      const similarData = await resSimilar.json()
+      articlesSimilaires.value = similarData
+        .filter(a => a.reference.trim() !== cleanRef)
+        .slice(0, 4)
+    }
 
     if (isVelo.value && article.value?.idModele) {
       const resModel = await fetch(`${API_BASE}/Modele/GetDetails/${article.value.idModele}`)
       const modelData = await resModel.json()
       const allVariantes = modelData.varianteVelos || []
 
-      // 1. COULEURS
       variantesCouleurs.value = allVariantes.filter(v => v.idBatterie === article.value.idBatterie)
 
-      // 2. BATTERIES
       const batteriesUniques = new Set()
       variantesBatteries.value = allVariantes
         .filter(v => {
@@ -159,35 +248,30 @@ const fetchData = async () => {
         })
         .sort((a, b) => a.idBatterieNavigation.capaciteBatterie - b.idBatterieNavigation.capaciteBatterie)
 
-      // 3. Infos batterie actuelle (pour résumé en haut si besoin)
-      if (article.value.idBatterie) {
-        const resBatt = await fetch(`${API_BASE}/Batterie/GetById/${article.value.idBatterie}`)
-        if (resBatt.ok) {
+      // Récupération informations batterie
+      const idBat = article.value.idBatterie || modelData.idBatterie
+      if (idBat) {
+        try {
+          const resBatt = await fetch(`${API_BASE}/Batterie/GetById/${idBat}`)
+          if (resBatt.ok) {
             batterieInfo.value = await resBatt.json()
-        }
+          }
+        } catch (err) { console.error("Erreur lors de la récupération de la batterie:", err) }
       }
 
-      // 4. PRÉPARATION TAILLES ET APPEL GÉOMÉTRIE (Ajouté ici)
       listeTailles.value = inventaire.value.map(i => ({
          idTaille: i.idTaille,
          nom: i.idTailleNavigation.taille1.trim()
       }))
       
-      // On appelle enfin les géométries
       await fetchGeometries(article.value.idModele, listeTailles.value)
     }
-  } catch (err) { console.error(err) } finally { loading.value = false }
+  } catch (err) { 
+    console.error("Erreur fetchData:", err) 
+  } finally { 
+    loading.value = false 
+  }
 }
-
-const fichesTechniquesGroupees = computed(() => {
-  const groupes = {}
-  caracteristiques.value.forEach(item => {
-    const groupe = item.idCaracteristiqueNavigation?.idGroupeCaracteristiqueNavigation?.nomGroupe || 'AUTRES'
-    if (!groupes[groupe]) groupes[groupe] = []
-    groupes[groupe].push(item)
-  })
-  return groupes
-})
 
 const activeSection = ref('TECH')
 const toggleSection = (s) => activeSection.value = activeSection.value === s ? null : s
@@ -198,8 +282,10 @@ watch(reference, () => {
     selectedTaille.value = null
     sizeError.value = false
     batterieInfo.value = null
+    
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' })
 })
-
 onMounted(fetchData)
 </script>
 
@@ -209,21 +295,22 @@ onMounted(fetchData)
     <div class="product-hero">
       <div class="gallery-column">
         <div class="main-image-wrapper">
-  <button class="nav-btn prev" @click="prevImage">&#10216;</button>
-  <img 
-    :src="getLocalImage(reference, currentImgIndex)" 
-    class="main-view zoom-cursor" 
-    @click="openZoom" 
-  />
-  <button class="nav-btn next" @click="nextImage">&#10217;</button>
-</div>
+          <button class="nav-btn prev" @click="prevImage">&#10216;</button>
+          <img 
+            :src="getLocalImage(reference, currentImgIndex)" 
+            class="main-view zoom-cursor" 
+            @click="openZoom" 
+          />
+          <button class="nav-btn next" @click="nextImage">&#10217;</button>
+        </div>
 
-<div class="zoom-overlay" v-if="isZoomOpen" @click="closeZoom">
-  <button class="close-zoom">✖</button>
-  <div class="zoom-container" @click.stop>
-    <img :src="getLocalImage(reference, currentImgIndex)" class="zoom-img" />
-  </div>
-</div>
+        <div class="zoom-overlay" v-if="isZoomOpen" @click="closeZoom">
+          <button class="close-zoom">✖</button>
+          <div class="zoom-container" @click.stop>
+            <img :src="getLocalImage(reference, currentImgIndex)" class="zoom-img" />
+          </div>
+        </div>
+
         <div class="thumbnails-row">
           <img 
             v-for="i in 4" :key="i"
@@ -243,19 +330,22 @@ onMounted(fetchData)
             <div class="accordion-content" v-show="activeSection === 'TECH'">
               <div class="tech-table">
                 
-                <div v-if="article.idBatterieNavigation" class="tech-group">
+                <div v-if="batterieInfo" class="tech-group">
+                  <h3 class="group-title">BATTERIE</h3>
                   <div class="tech-row">
                     <span class="tech-label">Capacité</span>
-                    <span class="tech-value">{{ article.idBatterieNavigation.capaciteBatterie }} Wh</span>
+                    <span class="tech-value">{{ batterieInfo.capacite || batterieInfo.capaciteBatterie }} Wh</span>
                   </div>
                 </div>
 
                 <div v-for="(items, groupName) in fichesTechniquesGroupees" :key="groupName" class="tech-group">
+                  <h3 class="group-title">{{ groupName }}</h3>
                   <div v-for="item in items" :key="item.idCaracteristique" class="tech-row">
                     <span class="tech-label">{{ item.idCaracteristiqueNavigation?.nomCaracteristique }}</span>
                     <span class="tech-value">{{ item.valeurCaracteristique }}</span>
                   </div>
                 </div>
+
               </div>
             </div>
           </section>
@@ -414,6 +504,7 @@ onMounted(fetchData)
             </RouterLink>
           </div>
         </div>
+
         <div class="battery-section" v-if="variantesBatteries.length > 0">
           <h3 class="section-label">BATTERIE :</h3>
           <div class="battery-grid">
@@ -428,6 +519,41 @@ onMounted(fetchData)
             </RouterLink>
           </div>
         </div>
+
+        <div class="battery-section" v-if="batterieInfo">
+          <h3 class="section-label">DÉTAILS ÉLECTRIQUES</h3>
+          <div class="battery-card">
+            <div class="battery-row">
+              <span class="batt-label">Modèle :</span>
+              <span class="batt-val">{{ batterieInfo.nomBatterie || 'Standard' }}</span>
+            </div>
+            <div class="battery-row">
+              <span class="batt-label">Capacité :</span>
+              <span class="batt-val">{{ batterieInfo.capacite || batterieInfo.capaciteBatterie }} Wh</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="similar-section" v-if="articlesSimilaires.length > 0">
+      <h2 class="section-label">ARTICLES SIMILAIRES</h2>
+      <div class="similar-grid">
+        <RouterLink 
+          v-for="sim in articlesSimilaires" 
+          :key="sim.reference"
+          :to="{ name: 'visualize', params: { id: sim.reference.trim() } }"
+          class="similar-card"
+        >
+          <div class="similar-img-wrapper">
+            <img :src="getLocalImage(sim.reference, 1)" :alt="sim.nomArticle" class="similar-img" />
+          </div>
+          <div class="similar-info">
+            <h4 class="similar-name">{{ sim.nomArticle }}</h4>
+            <span class="similar-price">{{ sim.prix?.toLocaleString() }} €</span>
+          </div>
+        </RouterLink>
       </div>
     </div>
 
@@ -446,27 +572,27 @@ onMounted(fetchData)
     </div>
 
   </div>
-  <div v-else-if="loading" class="loader">CHARGEMENT...</div>
+  <div v-else-if="loading" class="loader-container">
+    <div class="bike-wheel"></div>
+    <div class="loading-text">CHARGEMENT...</div>
+  </div>
 </template>
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 .visualize-page { max-width: 1400px; margin: 100px auto; padding: 0 20px; font-family: 'Inter', sans-serif; }
-.product-hero { display: grid; grid-template-columns: 1.6fr 1fr; gap: 50px; }
+.product-hero { display: grid; grid-template-columns: 1.6fr 1.2fr; gap: 0; background: #fff; }
 
-/* Animation de tremblement et couleur rouge */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-5px); }
   40%, 80% { transform: translateX(5px); }
 }
-.needs-size {
-  animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-}
+.needs-size { animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
 .needs-size .section-label { color: #ff3333; transition: color 0.3s; }
 .needs-size .size-box { border-color: #ff3333; background-color: #fffafa; transition: all 0.3s; }
 
-/* Galerie */
+.gallery-column { padding: 40px; }
 .main-image-wrapper { position: relative; background: #fff; display: flex; justify-content: center; align-items: center; min-height: 500px; border: 1px solid #f0f0f0; }
 .main-view { max-width: 90%; max-height: 500px; object-fit: contain; }
 .nav-btn { position: absolute; top: 50%; transform: translateY(-50%); background: #fff; border: 1px solid #ddd; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; z-index: 5; }
@@ -475,18 +601,26 @@ onMounted(fetchData)
 .thumbnails-row img { width: 70px; height: 70px; object-fit: contain; border: 1px solid #eee; cursor: pointer; padding: 5px; }
 .thumbnails-row img.active { border-color: #000; border-width: 2px; }
 
-/* Couleur de la colonne sélectionnée */
+.zoom-cursor { cursor: zoom-in; transition: transform 0.3s ease; }
+.zoom-cursor:hover { transform: scale(1.02); }
+.zoom-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.98); z-index: 2000; display: flex; justify-content: center; align-items: center; cursor: zoom-out; animation: fadeIn 0.2s ease-out; }
+.zoom-container { max-width: 90vw; max-height: 90vh; display: flex; justify-content: center; align-items: center; }
+.zoom-img { max-width: 100%; max-height: 90vh; object-fit: contain; box-shadow: 0 10px 50px rgba(0,0,0,0.1); cursor: default; }
+.close-zoom { position: absolute; top: 30px; right: 40px; background: none; border: none; font-size: 2rem; cursor: pointer; color: #000; z-index: 2100; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 .highlight-column { background-color: rgba(0, 207, 232, 0.1) !important; border-left: 1px solid rgba(0, 207, 232, 0.3); border-right: 1px solid rgba(0, 207, 232, 0.3); position: relative; }
 th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) !important; }
 .geo-table tr:hover td.highlight-column { background-color: rgba(0, 207, 232, 0.2) !important; }
 
-/* Achat */
-.breadcrumb { font-size: 0.7rem; font-weight: 900; color: #999; }
+.purchase-column { background: #f2f2f2; padding: 40px; display: flex; flex-direction: column; }
+.saison-badge { display: inline-block; border: 1px solid #000; padding: 5px 10px; font-weight: 900; font-size: 0.75rem; width: fit-content; margin-bottom: 20px; background: #fff; }
 .product-title { font-size: 3.2rem; font-weight: 900; font-style: italic; text-transform: uppercase; margin: 5px 0 15px; line-height: 1; }
 .meta-info { font-size: 0.8rem; color: #888; margin-bottom: 30px; font-weight: 700; }
 .section-label { font-weight: 900; font-style: italic; font-size: 1rem; margin-bottom: 15px; }
+
 .size-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 30px; }
-.size-box { border: 1px solid #e0e0e0; padding: 15px; text-align: center; cursor: pointer; border-radius: 8px; }
+.size-box { border: 1px solid #e0e0e0; padding: 15px; text-align: center; cursor: pointer; border-radius: 8px; background: #fff; }
 .size-box.active { border-color: #000; border-width: 2px; }
 .size-box.out { background: #f9f9f9; color: #ccc; cursor: not-allowed; }
 .s-name { display: block; font-weight: 900; font-size: 1.1rem; }
@@ -504,9 +638,8 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 
 .btn-black, .btn-white { width: 100%; padding: 20px; font-weight: 900; font-style: italic; cursor: pointer; border: none; margin-bottom: 10px; clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); }
 .btn-black { background: #000; color: #fff; margin-bottom: 25px;}
-.btn-white { color: #000; border: 1px solid #000; }
+.btn-white { color: #000; border: 1px solid #000; background: transparent;}
 
-/* Accordéons */
 .accordion-item { border-top: 1px solid #eee; }
 .accordion-header { display: flex; justify-content: space-between; padding: 25px 0; cursor: pointer; align-items: center; }
 .accordion-header h2 { font-size: 1.3rem; font-weight: 900; font-style: italic; margin: 0; }
@@ -518,26 +651,99 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .geo-table th, .geo-table td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; }
 .sticky-col { position: sticky; left: 0; background: #fff; font-weight: 900; text-align: left !important; }
 .text-block { line-height: 1.7; color: #444; padding-bottom: 30px; }
-.loader { padding: 100px; text-align: center; font-weight: 900; }
+.loader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff; /* Fond blanc pour cacher le site derrière */
+  z-index: 9999; /* Garde le loader au premier plan */
+}
 
-/* --- LAYOUT --- */
-.product-hero { display: grid; grid-template-columns: 1.6fr 1.2fr; gap: 0; background: #fff; }
-.gallery-column { padding: 40px; }
-.purchase-column { background: #f2f2f2; padding: 40px; display: flex; flex-direction: column; }
+.bike-wheel {
+  width: 60px;
+  height: 60px;
+  border: 6px solid #2c3e50; /* Pneu */
+  border-radius: 50%;
+  position: relative;
+  animation: spin 1.2s linear infinite;
+}
 
-/* --- BADGE SAISON --- */
-.saison-badge { display: inline-block; border: 1px solid #000; padding: 5px 10px; font-weight: 900; font-size: 0.75rem; width: fit-content; margin-bottom: 20px; background: #fff; }
+/* Rayons de la roue */
+.bike-wheel::before {
+  content: '';
+  position: absolute;
+  top: 50%; 
+  left: 50%;
+  width: 46px; 
+  height: 46px;
+  transform: translate(-50%, -50%);
+  border: 3px dashed #7f8c8d; 
+  border-radius: 50%;
+}
 
-/* --- SECTION COULEURS --- */
+/* Axe central (moyeu) */
+.bike-wheel::after {
+  content: '';
+  position: absolute;
+  top: 50%; 
+  left: 50%;
+  width: 12px; 
+  height: 12px;
+  background-color: rgb(17, 163, 221); /* Couleur d'accentuation */
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.loading-text {
+  margin-top: 20px;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 800;
+  color: #2c3e50;
+  letter-spacing: 2px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 .color-section { padding-top: 20px; }
 .color-grid { display: flex; gap: 15px; margin-top: 10px; }
 .color-dot-wrapper { padding: 3px; border: 2px solid transparent; border-radius: 50%; display: flex; transition: 0.2s; }
 .color-dot-wrapper.active-color { border-color: #000; }
 .color-dot { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); cursor: pointer; display: block; }
 
+.battery-section { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
+.battery-grid { display: flex; gap: 12px; margin-top: 10px; }
+.battery-box { text-decoration: none; border: 1px solid #e0e0e0; padding: 12px 25px; font-weight: 900; font-style: italic; background: #fff; color: #ccc; font-size: 0.9rem; transition: all 0.2s ease; cursor: pointer; }
+.battery-box.active { border: 2px solid #000; color: #000; }
+.battery-box:hover:not(.active) { border-color: #999; color: #666; }
+.battery-card { background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+.battery-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
+.battery-row:last-child { margin-bottom: 0; }
+.batt-label { font-weight: 700; color: #666; text-transform: uppercase; font-size: 0.8rem; }
+.batt-val { font-weight: 900; color: #000; }
+
 .help-circle { background: #00CFE8; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 0.7rem; margin-left: 5px; cursor: help; }
 
-/* --- MODALE AJOUT PANIER --- */
+/* Articles Similaires */
+.similar-section { margin-top: 80px; padding-top: 40px; border-top: 1px solid #eee; }
+.similar-section .section-label { font-size: 1.5rem; margin-bottom: 30px; text-align: center; }
+.similar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px; }
+.similar-card { text-decoration: none; color: inherit; background: #fff; border: 1px solid #f0f0f0; border-radius: 8px; overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease; display: flex; flex-direction: column; }
+.similar-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+.similar-img-wrapper { background: #f9f9f9; padding: 20px; display: flex; justify-content: center; align-items: center; height: 200px; }
+.similar-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.similar-info { padding: 20px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; flex-grow: 1; }
+.similar-name { font-weight: 900; font-style: italic; font-size: 1rem; margin: 0 0 10px 0; text-transform: uppercase; }
+.similar-price { font-weight: 700; color: #666; }
+
+/* Modal */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
 .modal-content { background: #fff; padding: 40px; border-radius: 12px; text-align: center; position: relative; max-width: 500px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.15); animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes modalPop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
@@ -552,96 +758,6 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .btn-continue:hover { background: #e0e0e0; }
 .btn-cart { background: #000; color: #fff; }
 .btn-cart:hover { background: #00a8e8; }
-
-.battery-section {
-  margin: 25px 0;
-}
-
-.battery-grid {
-  display: flex;
-  gap: 12px;
-}
-
-.battery-box {
-  text-decoration: none;
-  border: 1px solid #e0e0e0;
-  padding: 12px 25px;
-  font-weight: 900;
-  font-style: italic;
-  background: #fff;
-  color: #ccc; /* Texte gris par défaut (non sélectionné) */
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.battery-box.active {
-  border: 2px solid #000;
-  color: #000; /* Texte noir si actif */
-}
-
-.battery-box:hover:not(.active) {
-  border-color: #999;
-  color: #666;
-}
-
-/* Curseur loupe sur l'image principale */
-.zoom-cursor {
-  cursor: zoom-in;
-  transition: transform 0.3s ease;
-}
-.zoom-cursor:hover {
-  transform: scale(1.02);
-}
-
-/* Modale de Zoom */
-.zoom-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.98); /* Fond blanc pur très opaque */
-  z-index: 2000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: zoom-out;
-  animation: fadeIn 0.2s ease-out;
-}
-
-.zoom-container {
-  max-width: 90vw;
-  max-height: 90vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.zoom-img {
-  max-width: 100%;
-  max-height: 90vh;
-  object-fit: contain;
-  box-shadow: 0 10px 50px rgba(0,0,0,0.1);
-  cursor: default;
-}
-
-.close-zoom {
-  position: absolute;
-  top: 30px;
-  right: 40px;
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  color: #000;
-  z-index: 2100;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .modal-actions { flex-direction: column; } }
