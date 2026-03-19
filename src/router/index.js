@@ -82,7 +82,34 @@ const router = createRouter({
         {
             path: '/espace-commercial/ajouter-categorie',
             name: 'ajouter-categorie',
-            component: () => import('../views/AdminViews/AjouterCategorieView.vue'), // Assure-toi que le fichier est bien dans ce dossier
+            component: () => import('../views/AdminViews/AjouterCategorieView.vue'),
+            meta: { 
+                requiresAuth: true, 
+                requiresRole: 'commercial' 
+            }
+        },
+        {
+            path: '/espace-commercial/ajouter-modele',
+            name: 'ajouter-modele',
+            component: () => import('../views/AdminViews/AjouterModeleView.vue'),
+            meta: { 
+                requiresAuth: true, 
+                requiresRole: 'commercial' 
+            }
+        },
+        {
+            path: '/espace-commercial/ajouter-variante',
+            name: 'ajouter-variante',
+            component: () => import('../views/AdminViews/AjouterVarianteView.vue'),
+            meta: { 
+                requiresAuth: true, 
+                requiresRole: 'commercial' 
+            }
+        },
+        {
+            path: '/espace-commercial/modifier-variante',
+            name: 'modifier-variante',
+            component: () => import('../views/AdminViews/ModifierVarianteView.vue'),
             meta: { 
                 requiresAuth: true, 
                 requiresRole: 'commercial' 
