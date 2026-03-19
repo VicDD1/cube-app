@@ -11,20 +11,35 @@ const form = ref({
 
 const isSubmitted = ref(false)
 
-const envoyerMessage = () => {
-  // Ici, vous pourrez ajouter l'appel à votre API pour envoyer l'e-mail
-  console.log("Message envoyé :", form.value)
-  isSubmitted.value = true
-  
-  // Reset du formulaire
-  form.value = { nom: '', email: '', sujet: '', message: '' }
-  
-  setTimeout(() => {
-    isSubmitted.value = false
-  }, 5000)
+const envoyerMessage = async () => {
+  try {
+    // Appel à l'API Formspree (ou autre service similaire)
+    const response = await fetch('https://formspree.io/f/mjgalgkw', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(form.value)
+    })
+
+    if (response.ok) {
+      isSubmitted.value = true
+      
+      // Reset du formulaire
+      form.value = { nom: '', email: '', sujet: '', message: '' }
+      
+      setTimeout(() => {
+        isSubmitted.value = false
+      }, 5000)
+    } else {
+      console.error("Erreur lors de l'envoi du message.")
+    }
+  } catch (error) {
+    console.error("Problème réseau :", error)
+  }
 }
 </script>
-
 <template>
   <div class="contact-page">
     <div class="contact-header">
@@ -83,17 +98,11 @@ const envoyerMessage = () => {
             <Mail class="info-icon" :size="24" />
             <div>
               <h3>E-mail</h3>
-              <p>contact@cube-bikes.fr</p>
+              <p>noreplycube.app@gmail.com</p>
             </div>
           </div>
           
-          <div class="info-card">
-            <MapPin class="info-icon" :size="24" />
-            <div>
-              <h3>Boutique & Atelier</h3>
-              <p>123 Avenue du Vélo<br>75000 Paris, France</p>
-            </div>
-          </div>
+        
           
           <div class="info-card">
             <Clock class="info-icon" :size="24" />

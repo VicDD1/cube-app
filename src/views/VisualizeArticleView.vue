@@ -572,7 +572,10 @@ onMounted(fetchData)
     </div>
 
   </div>
-  <div v-else-if="loading" class="loader">CHARGEMENT...</div>
+  <div v-else-if="loading" class="loader-container">
+    <div class="bike-wheel"></div>
+    <div class="loading-text">CHARGEMENT...</div>
+  </div>
 </template>
 
 <style scoped>
@@ -648,8 +651,67 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .geo-table th, .geo-table td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; }
 .sticky-col { position: sticky; left: 0; background: #fff; font-weight: 900; text-align: left !important; }
 .text-block { line-height: 1.7; color: #444; padding-bottom: 30px; }
-.loader { padding: 100px; text-align: center; font-weight: 900; }
+.loader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff; /* Fond blanc pour cacher le site derrière */
+  z-index: 9999; /* Garde le loader au premier plan */
+}
 
+.bike-wheel {
+  width: 60px;
+  height: 60px;
+  border: 6px solid #2c3e50; /* Pneu */
+  border-radius: 50%;
+  position: relative;
+  animation: spin 1.2s linear infinite;
+}
+
+/* Rayons de la roue */
+.bike-wheel::before {
+  content: '';
+  position: absolute;
+  top: 50%; 
+  left: 50%;
+  width: 46px; 
+  height: 46px;
+  transform: translate(-50%, -50%);
+  border: 3px dashed #7f8c8d; 
+  border-radius: 50%;
+}
+
+/* Axe central (moyeu) */
+.bike-wheel::after {
+  content: '';
+  position: absolute;
+  top: 50%; 
+  left: 50%;
+  width: 12px; 
+  height: 12px;
+  background-color: rgb(17, 163, 221); /* Couleur d'accentuation */
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.loading-text {
+  margin-top: 20px;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 800;
+  color: #2c3e50;
+  letter-spacing: 2px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 .color-section { padding-top: 20px; }
 .color-grid { display: flex; gap: 15px; margin-top: 10px; }
 .color-dot-wrapper { padding: 3px; border: 2px solid transparent; border-radius: 50%; display: flex; transition: 0.2s; }
