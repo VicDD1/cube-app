@@ -114,6 +114,17 @@ const router = createRouter({
                 requiresAuth: true, 
                 requiresRole: 'commercial' 
             }
+        },
+        {
+            path: '/profile',
+            component: () => import('../views/ProfileView.vue'), 
+            children: [
+                { path: '', name: 'dashboard', component: () => import('../components/ProfileDashBoard.vue') },
+                // { path: 'infos', name: 'profile-infos', component: () => import('../components/InfosProfil.vue') },
+                // { path: 'commandes', name: 'profile-orders', component: () => import('../components/CommandesProfil.vue') },
+                // { path: 'adresses', name: 'profile-addresses', component: () => import('../components/AdressesProfil.vue') },
+                // { path: 'velos', name: 'profile-bikes', component: () => import('../components/VelosProfil.vue') },
+            ]
         }
     ]
 })
