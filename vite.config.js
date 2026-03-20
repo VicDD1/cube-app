@@ -15,4 +15,14 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  // --- AJOUT DE LA PARTIE SERVEUR / PROXY ---
+  server: {
+    proxy: {
+      '/api-azure': {
+        target: 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-azure/, '')
+      }
+    }
+  }
 })
