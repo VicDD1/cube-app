@@ -9,7 +9,7 @@ const router = useRouter()
 const appStore = useAppStore()
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
-const idClient = ref(null) 
+const idClient = computed(() => appStore.user?.idClient || null)
 
 // --- RÉFÉRENCES RÉACTIVES ---
 const reference = computed(() => route.params.id?.trim())
@@ -121,11 +121,20 @@ const addToCart = async () => {
   // --- Gestion Utilisateur Connecté (API) ---
   try {
     let vraiIdPanier = null;
+    let lignesExistantes = [];
+
     const cartRes = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`);
 
     if (cartRes.ok) {
       const cartData = await cartRes.json();
       vraiIdPanier = cartData.idPanier;
+      
+      // On scanne le contenu du panier pour voir ce qui s'y trouve déjà
+      const detailsRes = await fetch(`${API_BASE}/Panier/GetDetails/${vraiIdPanier}`);
+      if (detailsRes.ok) {
+        const detailsData = await detailsRes.json();
+        lignesExistantes = detailsData.lignePaniers || [];
+      }
     } else {
       const newCartRes = await fetch(`${API_BASE}/Panier/PostPanier`, {
         method: 'POST',
@@ -141,24 +150,47 @@ const addToCart = async () => {
       }
     }
 
-    const payload = {
-      idPanier: vraiIdPanier, 
-      reference: reference.value,
-      tailleSelectionnee: selectedTaille.value.idTailleNavigation.taille1.trim(),
-      quantiteSelectionnee: 1,
-      prixUnitaire: article.value.prix
-    };
+    const targetRef = reference.value.trim();
+    const targetTaille = selectedTaille.value.idTailleNavigation.taille1.trim();
 
-    const response = await fetch(`${API_BASE}/LignePanier/PostLignePanier`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    // On regarde si la même ref + taille existe déjà
+    const articleExistant = lignesExistantes.find(
+      i => i.reference.trim() === targetRef && i.tailleSelectionnee.trim() === targetTaille
+    );
 
-    if (response.ok) {
-      appStore.updateCartCount(idClient.value);
-      showCartModal.value = true;
+    if (articleExistant) {
+      // S'il est là, on fait un PUT pour simplement augmenter la quantité
+      const nouvelleQuantite = (articleExistant.quantiteArticle || 1) + 1;
+      const payloadPut = {
+        idPanier: vraiIdPanier,
+        reference: articleExistant.reference, // On garde la version DB avec espaces éventuels
+        tailleSelectionnee: articleExistant.tailleSelectionnee,
+        quantiteArticle: nouvelleQuantite
+      };
+
+      await fetch(`${API_BASE}/LignePanier/PutLignePanier/${vraiIdPanier}/${encodeURIComponent(articleExistant.reference)}/${encodeURIComponent(articleExistant.tailleSelectionnee)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadPut)
+      });
+    } else {
+      // S'il n'est pas là, on insère la nouveauté avec POST
+      const payloadPost = {
+        idPanier: vraiIdPanier, 
+        reference: targetRef,
+        tailleSelectionnee: targetTaille,
+        quantiteArticle: 1
+      };
+
+      await fetch(`${API_BASE}/LignePanier/PostLignePanier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadPost)
+      });
     }
+
+    appStore.updateCartCount(idClient.value);
+    showCartModal.value = true;
   } catch (err) {
     console.error("Erreur ajout panier:", err);
   }
@@ -661,20 +693,19 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #ffffff; /* Fond blanc pour cacher le site derrière */
-  z-index: 9999; /* Garde le loader au premier plan */
+  background-color: #ffffff;
+  z-index: 9999; 
 }
 
 .bike-wheel {
   width: 60px;
   height: 60px;
-  border: 6px solid #2c3e50; /* Pneu */
+  border: 6px solid #2c3e50; 
   border-radius: 50%;
   position: relative;
   animation: spin 1.2s linear infinite;
 }
 
-/* Rayons de la roue */
 .bike-wheel::before {
   content: '';
   position: absolute;
@@ -687,7 +718,6 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
   border-radius: 50%;
 }
 
-/* Axe central (moyeu) */
 .bike-wheel::after {
   content: '';
   position: absolute;
@@ -695,7 +725,7 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
   left: 50%;
   width: 12px; 
   height: 12px;
-  background-color: rgb(17, 163, 221); /* Couleur d'accentuation */
+  background-color: rgb(17, 163, 221);
   border-radius: 50%;
   transform: translate(-50%, -50%);
 }

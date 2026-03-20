@@ -351,7 +351,12 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
           {{ appStore.magasinChoisi ? appStore.magasinChoisi.nomAffiche : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
         </a>
 
-        <router-link to="/connexion" class="icon-btn"><User :size="20" :stroke-width="2" /></router-link>
+        <router-link to="/connexion" class="icon-btn profile-btn">
+          <span v-if="appStore.user" class="user-name">
+            {{ appStore.user.prenomClient }} {{ appStore.user.nomClient }}
+          </span>
+          <User v-else :size="20" :stroke-width="2" />
+        </router-link>
         
         <router-link to="/panier" class="cart-container-btn">
           <button class="icon-btn"><ShoppingCart :size="20" :stroke-width="2" /></button>
@@ -373,6 +378,20 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
   width: 100%;
   z-index: 100;
   font-family: 'Inter', sans-serif;
+}
+
+
+.profile-btn {
+  display: flex;
+  align-items: center;
+}
+
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 /* --- NAVIGATION PRINCIPALE --- */

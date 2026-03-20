@@ -1,11 +1,14 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
 import { useAppStore } from '../stores/useStore'
+import { useRouter } from 'vue-router'
 
 const appStore = useAppStore()
-const idClient = ref(null) 
+
+const idClient = computed(() => appStore.user ? appStore.user.idClient : null)
 const cart = ref({ lignePaniers: [] })
 const loading = ref(true)
+const router = useRouter()
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 
@@ -87,6 +90,10 @@ const fetchCart = async () => {
           if (artRes.ok) {
             const artData = await artRes.json()
             item.nomArticle = artData.nomArticle
+            
+            
+            item.prixUnitaire = artData.prix
+            item.quantiteSelectionnee = item.quantiteArticle || item.quantiteSelectionnee
           }
         } catch (e) {
           console.error(`Erreur récupération nom:`, e)
@@ -113,12 +120,27 @@ const updateQuantity = async (item, delta) => {
     appStore.updateCartCount(null)
   } else {
     try {
-      const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${item.reference}/${item.tailleSelectionnee}`, {
+      // 1. Création d'un payload strict (uniquement les colonnes de la BDD)
+      const payload = {
+        idPanier: item.idPanier,
+        reference: item.reference, // On conserve les espaces pour matcher la DB
+        tailleSelectionnee: item.tailleSelectionnee,
+        quantiteArticle: newQty
+      }
+
+      // 2. Encodage de l'URL pour passer les espaces proprement (%20)
+      const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${encodeURIComponent(item.reference)}/${encodeURIComponent(item.tailleSelectionnee)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...item, quantiteSelectionnee: newQty })
+        body: JSON.stringify(payload)
       })
-      if (response.ok) fetchCart()
+      
+      if (response.ok) {
+        item.quantiteSelectionnee = newQty
+        fetchCart()
+      } else {
+        console.error("L'API a refusé la mise à jour.")
+      }
     } catch (err) {
       console.error("Erreur update:", err)
     }
@@ -147,13 +169,24 @@ const removeItem = async (item) => {
 }
 
 const getImageUrl = (ref) => {
-  const folder = ref.length === 6 ? 'VELOS' : 'ACCESSOIRES'
+  const cleanRef = ref?.trim() || '' 
+  const folder = cleanRef.length === 6 ? 'VELOS' : 'ACCESSOIRES'
+  
   try {
-    return new URL(`../assets/images/${folder}/${ref}/image_1.webp`, import.meta.url).href
+    return new URL(`../assets/images/${folder}/${cleanRef}/image_1.webp`, import.meta.url).href
   } catch(e) {
     return 'https://via.placeholder.com/150?text=Image+Indisponible'
   }
 }
+
+const handleCheckout = () => {
+  if (appStore.isConnected) {
+    router.push('/paiement')
+  } else {
+    router.push('/login')
+  }
+}
+
 
 onMounted(fetchCart)
 </script>
@@ -248,7 +281,7 @@ onMounted(fetchCart)
             <span class="total-amount">{{ finalTotalCart.toLocaleString() }} €</span>
           </div>
           
-          <button class="checkout-btn">
+          <button class="checkout-btn" @click="handleCheckout">
             VALIDER MON PANIER
             <span class="btn-icon">→</span>
           </button>

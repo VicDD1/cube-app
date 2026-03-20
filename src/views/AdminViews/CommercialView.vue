@@ -10,14 +10,22 @@
         </header>
   
         <div class="button-grid">
-          <button class="action-btn" disabled>GÉRER LES STOCKS</button>
-          <button class="action-btn" disabled>VOIR LES COMMANDES</button>
           
           <button class="action-btn active-btn" @click="goToAddCategory">
             AJOUTER UNE CATÉGORIE
           </button>
           
-          <button class="action-btn" disabled>STATISTIQUES</button>
+          <button class="action-btn active-btn" @click="goToAddModele">
+            CRÉER UN MODÈLE
+          </button>
+
+          <button class="action-btn active-btn" @click="goToAddVariante">
+            CRÉER UNE VARIANTE
+          </button>
+
+          <button class="action-btn active-btn" @click="goToModifyVariante">
+            GÉRER STOCKS & INFOS
+          </button>
         </div>
       </div>
     </main>
@@ -32,6 +40,18 @@
 
     const goToAddCategory = () => {
     router.push('/espace-commercial/ajouter-categorie');
+    };
+
+    const goToAddModele = () => {
+      router.push('/espace-commercial/ajouter-modele');
+    };
+
+    const goToAddVariante = () => {
+      router.push('/espace-commercial/ajouter-variante');
+    };
+
+    const goToModifyVariante = () => {
+      router.push('/espace-commercial/modifier-variante');
     };
   </script>
   
@@ -59,7 +79,7 @@
     max-width: 800px;
     padding: 40px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.1);
-    border-top: 5px solid #00a8e8; /* Accent bleu pour différencier de l'accueil */
+    border-top: 5px solid #00a8e8;
   }
   
   .card-header h1 {
