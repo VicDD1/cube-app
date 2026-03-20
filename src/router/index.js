@@ -125,6 +125,11 @@ const router = createRouter({
                 // { path: 'adresses', name: 'profile-addresses', component: () => import('../components/AdressesProfil.vue') },
                 // { path: 'velos', name: 'profile-bikes', component: () => import('../components/VelosProfil.vue') },
             ]
+        },
+        {
+            path: '/paiement',
+            name: 'Paiement',
+            component: () => import('../views/payment.vue'),
         }
     ]
 })
