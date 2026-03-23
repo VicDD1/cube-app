@@ -5,7 +5,7 @@ export const useAppStore = defineStore('app', () => {
   const magasinChoisi = ref(null)
   const isConnected = ref(false) 
   const user = ref(null)
-  
+  const chatMessages = ref([{ role: 'bot', text: 'Bonjour ! Comment puis-je vous aider ?' }])
   // Nouvelle variable pour la pastille
   const cartItemCount = ref(0) 
 
@@ -26,6 +26,13 @@ export const useAppStore = defineStore('app', () => {
     localStorage.removeItem('user')
   }
 
+  function addChatMessage(message) {
+    chatMessages.value.push(message)
+    // On utilise sessionStorage pour que la conv reste pendant la navigation
+    // mais s'efface si on ferme l'onglet (plus propre pour un chat)
+    sessionStorage.setItem('chat_history', JSON.stringify(chatMessages.value))
+  }
+
   function loadPersistedStore() {
     const savedStore = localStorage.getItem('selectedStore')
     if (savedStore) magasinChoisi.value = JSON.parse(savedStore)
@@ -34,6 +41,10 @@ export const useAppStore = defineStore('app', () => {
     if (savedUser) {
       user.value = JSON.parse(savedUser)
       isConnected.value = true
+    }
+    const savedChat = sessionStorage.getItem('chat_history')
+    if (savedChat) {
+      chatMessages.value = JSON.parse(savedChat)
     }
   }
 
@@ -64,9 +75,11 @@ export const useAppStore = defineStore('app', () => {
     isConnected, 
     user, 
     cartItemCount,
+    chatMessages,
     setMagasin, 
     login, 
     logout, 
+    addChatMessage,
     loadPersistedStore,
     updateCartCount
   }

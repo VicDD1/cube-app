@@ -40,6 +40,7 @@
     </div>
 </template>
 <script setup>
+import { computed } from 'vue'
 import { ref, nextTick, onMounted } from 'vue';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useAppStore } from '../stores/useStore';
@@ -55,7 +56,7 @@ const userInput = ref(' ');
 const isLoading = ref(false);
 const messagesContainer = ref(null);
 const bikeData = ref(null);
-const messages = ref([{ role: 'bot', text: 'Bonjour ! Comment puis-je vous aider ?' }]);
+const messages = computed(() => store.chatMessages);
 
 // Récupération automatique au montage du composant
 onMounted(async () => {
@@ -137,12 +138,12 @@ const sendMessage = async () => {
             CATALOGUE : ${JSON.stringify(simplifiedCatalog)}
 
             CONSIGNES :
-            1. Si on te demande "Qui suis-je ?", réponds poliment en utilisant le prénom : ${user?.prenomClient || 'visiteur'}.
+            1. Si on te demande "Qui suis-je ?", réponds poliment en utilisant le nom : ${user.nomClient|| ''} , le prénom : ${user?.prenomClient || 'visiteur'} et l'email ${user.email||''}:  .
             2. Pour le PANIER : 
-               - Si le panier est vide (${!aDesArticles}), propose de découvrir les vélos électriques.
-               - S'il n'est pas vide, affiche ce bouton : <a href="http://localhost:5173/panier" class="btn-cart">Voir mon panier 🛒</a>
+                - Si le panier est vide (${!aDesArticles}), propose de découvrir les vélos électriques.
+                - S'il n'est pas vide, affiche ce bouton : <a href="http://localhost:5173/panier" class="btn-cart">Voir mon panier 🛒</a>
             3. LIENS PRODUITS :
-               - Chaque vélo doit avoir son bouton : <a href="http://localhost:5173/produit/LA_REFERENCE" class="btn-product">Voir le produit</a>
+                - Chaque vélo doit avoir son bouton : <a href="http://localhost:5173/produit/LA_REFERENCE" class="btn-product">Voir le produit</a>
             4. RECHERCHE : Utilise le NOM ARTICLE EXACT du catalogue.
         `;
 
@@ -155,13 +156,14 @@ const sendMessage = async () => {
                     parts: [{ text: promptSystem + " Question : " + text }]
                 }]
             })
+        
         });
 
         const data = await response.json();
         if (data.error) throw new Error(data.error.message);
 
         const botReply = data.candidates[0].content.parts[0].text;
-        messages.value.push({ role: 'bot', text: botReply });
+        store.addChatMessage({ role: 'bot', text: botReply });
 
     } catch (error) {
         console.error("Erreur Chatbot:", error);
@@ -258,6 +260,7 @@ const sendMessage = async () => {
     flex-direction: column;
     gap: 10px;
     background-color: #f8f9fa;
+    overscroll-behavior: contain;
 }
 
 .message-bubble {
