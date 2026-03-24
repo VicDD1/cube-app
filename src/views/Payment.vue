@@ -29,23 +29,20 @@ const subTotalCart = computed(() => {
 })
 
 const finalTotalCart = computed(() => subTotalCart.value)
+
+// --- STRIPE ---
 const selectStripe = async () => {
-  isPaypalLoading.value = true // On peut réutiliser un loader si tu en as un
+  isPaypalLoading.value = true 
   
   try {
-    // 1. Initialise Stripe avec ta clé PUBLIQUE (pk_test_...)
-    const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY)
-
-    // 2. Appelle ton serveur local sur le port 3000
-    const response = await fetch('http://localhost:3000/create-checkout-session', {
+    // Note : Assurez-vous que le port correspond à celui de votre serveur (3000 ou 4242)
+    const response = await fetch('http://localhost:4242/create-checkout-session', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // On envoie le montant total (en euros)
         amount: finalTotalCart.value,
-        // On peut aussi envoyer le nom du client ou les articles si tu veux
         customerName: appStore.user?.prenomClient || 'Client CUBE'
       }),
     })
@@ -56,22 +53,16 @@ const selectStripe = async () => {
       throw new Error(session.error)
     }
 
-    // 3. Redirige vers la page de paiement Stripe
-    const result = await stripe.redirectToCheckout({
-      sessionId: session.id,
-    })
-
-    if (result.error) {
-      alert(result.error.message)
+    // Redirection directe vers la page de paiement sécurisée de Stripe
+    if (session.url) {
+      window.location.href = session.url
     }
   } catch (err) {
     console.error("Erreur lors de la liaison avec le serveur Stripe :", err)
-    alert("Le serveur de paiement (port 3000) ne répond pas. L'as-tu lancé ?")
   } finally {
     isPaypalLoading.value = false
   }
 }
-
 
 // --- INITIALISATION PAYPAL SDK ---
 const initPayPal = async () => {
@@ -102,7 +93,6 @@ const initPayPal = async () => {
         onApprove: async (data, actions) => {
           const details = await actions.order.capture()
           console.log('Paiement validé par PayPal:', details)
-          // Redirection vers la page de succès
           router.push('/confirmation')
         },
         onError: (err) => {
@@ -120,7 +110,6 @@ const initPayPal = async () => {
 const openPaymentModal = () => {
   showPaymentModal.value = true
   nextTick(() => {
-    // On s'assure que le conteneur est vide avant de charger pour éviter les doublons
     const container = document.getElementById('paypal-button-container')
     if (container) container.innerHTML = ''
     initPayPal()
@@ -269,7 +258,7 @@ onMounted(() => {
         <p class="modal-subtitle">Montant à régler : <strong>{{ finalTotalCart.toLocaleString() }} €</strong></p>
         
         <div class="payment-methods">
-          <button class="gateway-btn stripe-btn" @click="alert('Stripe bientôt disponible')">
+          <button class="gateway-btn stripe-btn" @click="selectStripe">
             <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg" alt="Stripe" class="payment-logo" />
             <span>Payer par Carte Bancaire</span>
           </button>
@@ -283,6 +272,7 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
 
