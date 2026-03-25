@@ -2,13 +2,17 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
+  // --- ÉTATS ---
   const magasinChoisi = ref(null)
   const isConnected = ref(false) 
   const user = ref(null)
   const chatMessages = ref([{ role: 'bot', text: 'Bonjour ! Comment puis-je vous aider ?' }])
-  // Nouvelle variable pour la pastille
   const cartItemCount = ref(0) 
+  
+  // Correction ici : Initialisation du tracker d'activité
+  const activityLog = ref([]) 
 
+  // --- ACTIONS ---
   function setMagasin(magasin) {
     magasinChoisi.value = magasin
     localStorage.setItem('selectedStore', JSON.stringify(magasin))
@@ -28,11 +32,10 @@ export const useAppStore = defineStore('app', () => {
 
   function addChatMessage(message) {
     chatMessages.value.push(message)
-    // On utilise sessionStorage pour que la conv reste pendant la navigation
-    // mais s'efface si on ferme l'onglet (plus propre pour un chat)
     sessionStorage.setItem('chat_history', JSON.stringify(chatMessages.value))
   }
 
+  // Chargement des données au démarrage de l'app
   function loadPersistedStore() {
     const savedStore = localStorage.getItem('selectedStore')
     if (savedStore) magasinChoisi.value = JSON.parse(savedStore)
@@ -42,13 +45,24 @@ export const useAppStore = defineStore('app', () => {
       user.value = JSON.parse(savedUser)
       isConnected.value = true
     }
+
     const savedChat = sessionStorage.getItem('chat_history')
     if (savedChat) {
       chatMessages.value = JSON.parse(savedChat)
     }
+
+    // Récupération des logs d'activité pour éviter l'erreur undefined
+    const savedLog = localStorage.getItem('cube_activity_log')
+    if (savedLog) {
+      try {
+        activityLog.value = JSON.parse(savedLog)
+      } catch (e) {
+        activityLog.value = []
+      }
+    }
   }
 
-  // Nouvelle action pour recalculer le nombre d'articles
+  // Recalcul du panier (API)
   async function updateCartCount(idClient = null) {
     if (!idClient) {
       const localCart = JSON.parse(localStorage.getItem('panierVisiteur'))
@@ -76,6 +90,7 @@ export const useAppStore = defineStore('app', () => {
     user, 
     cartItemCount,
     chatMessages,
+    activityLog, // Ne pas oublier de l'exposer ici !
     setMagasin, 
     login, 
     logout, 
