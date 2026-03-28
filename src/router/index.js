@@ -36,7 +36,6 @@ const router = createRouter({
             path: '/accessoires',
             name: 'Accessoires',
             component: () => import('../views/ListArticle.vue'),
-            // J'ai rajouté un title pour que ton <h1> ne soit pas vide
             props: { typeArticle: 'Accessoires', title: 'Tous nos accessoires' }
         },
         {
@@ -46,9 +45,9 @@ const router = createRouter({
             props: true
         },
         {
-            path: '/login', // <--- Correction ici (deux 'n')
+            path: '/login', 
             name: 'login',
-            component: () => import('../views/ConnexionView.vue') // <--- On pointe vers la vue de connexion    
+            component: () => import('../views/ConnexionView.vue')  
         },
         {
             path: '/connexion',
@@ -116,14 +115,13 @@ const router = createRouter({
             }
         },
         {
-            path: '/profile',
+            path: '/profil',
             component: () => import('../views/ProfileView.vue'), 
             children: [
-                { path: '', name: 'dashboard', component: () => import('../components/ProfileDashBoard.vue') },
-                // { path: 'infos', name: 'profile-infos', component: () => import('../components/InfosProfil.vue') },
-                // { path: 'commandes', name: 'profile-orders', component: () => import('../components/CommandesProfil.vue') },
-                // { path: 'adresses', name: 'profile-addresses', component: () => import('../components/AdressesProfil.vue') },
-                // { path: 'velos', name: 'profile-bikes', component: () => import('../components/VelosProfil.vue') },
+                { path: '', name: 'dashboard', component: () => import('../views/ProfileDashBoard.vue') },
+                { path: 'infos', name: 'profile-infos', component: () => import('../views/InfosProfil.vue') },
+                { path: 'commandes', name: 'profile-orders', component: () => import('../views/CommandesProfil.vue') },
+                { path: 'adresses', name: 'profile-addresses', component: () => import('../views/AdressesProfil.vue') },
             ]
         },
         {
@@ -139,7 +137,6 @@ const router = createRouter({
     ]
 })
 
-// LE VIDEUR DE L'APPLICATION
 router.beforeEach((to, from, next) => {
     const store = useAppStore()
     

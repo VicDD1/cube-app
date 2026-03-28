@@ -292,10 +292,9 @@ const prev = () => {
 }
 .category-card:hover .btn-link { background: #11a3dd; color: white; }
 
-/* --- CONFIANCE --- */
 .trust-bar {
   background-color: #ffffff; padding: 60px 40px;
-  text-align: center; border-radius: 30px; /* Section arrondie */
+  text-align: center; border-radius: 30px;
   margin: 0 5% 80px 5%; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.03);
 }
 
@@ -314,7 +313,6 @@ const prev = () => {
 .trust-text .highlight { color: #11a3dd; }
 .trust-text .sub { font-size: 12px; color: #64748b; margin-top: 4px; font-weight: 500; }
 
-/* --- AIDE & CONTACT --- */
 .support-section {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #fff; padding: 80px 20px;
@@ -329,7 +327,7 @@ const prev = () => {
 .support-box {
   flex: 1; text-align: center; padding: 50px 30px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 30px; /* Blocs arrondis */
+  border-radius: 30px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   transition: transform 0.3s ease;
 }
@@ -349,7 +347,7 @@ const prev = () => {
 .support-link {
   display: inline-block; padding: 14px 35px;
   background-color: transparent; border: 2px solid #11a3dd;
-  border-radius: 30px; /* Boutons très arrondis */
+  border-radius: 30px;
   color: white; text-decoration: none; font-weight: 700;
   font-size: 14px; transition: all 0.3s ease;
 }
