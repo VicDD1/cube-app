@@ -2,13 +2,17 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
+  // --- ÉTATS ---
   const magasinChoisi = ref(null)
   const isConnected = ref(false) 
   const user = ref(null)
-  
-  // Nouvelle variable pour la pastille
+  const chatMessages = ref([{ role: 'bot', text: 'Bonjour ! Comment puis-je vous aider ?' }])
   const cartItemCount = ref(0) 
+  
+  // Correction ici : Initialisation du tracker d'activité
+  const activityLog = ref([]) 
 
+  // --- ACTIONS ---
   function setMagasin(magasin) {
     magasinChoisi.value = magasin
     localStorage.setItem('selectedStore', JSON.stringify(magasin))
@@ -29,6 +33,12 @@ export const useAppStore = defineStore('app', () => {
     localStorage.removeItem('selectedStore') 
   }
 
+  function addChatMessage(message) {
+    chatMessages.value.push(message)
+    sessionStorage.setItem('chat_history', JSON.stringify(chatMessages.value))
+  }
+
+  // Chargement des données au démarrage de l'app
   function loadPersistedStore() {
     const savedStore = localStorage.getItem('selectedStore')
     if (savedStore) magasinChoisi.value = JSON.parse(savedStore)
@@ -38,9 +48,24 @@ export const useAppStore = defineStore('app', () => {
       user.value = JSON.parse(savedUser)
       isConnected.value = true
     }
+
+    const savedChat = sessionStorage.getItem('chat_history')
+    if (savedChat) {
+      chatMessages.value = JSON.parse(savedChat)
+    }
+
+    // Récupération des logs d'activité pour éviter l'erreur undefined
+    const savedLog = localStorage.getItem('cube_activity_log')
+    if (savedLog) {
+      try {
+        activityLog.value = JSON.parse(savedLog)
+      } catch (e) {
+        activityLog.value = []
+      }
+    }
   }
 
-  // Nouvelle action pour recalculer le nombre d'articles
+  // Recalcul du panier (API)
   async function updateCartCount(idClient = null) {
     if (!idClient) {
       const localCart = JSON.parse(localStorage.getItem('panierVisiteur'))
@@ -67,9 +92,12 @@ export const useAppStore = defineStore('app', () => {
     isConnected, 
     user, 
     cartItemCount,
+    chatMessages,
+    activityLog, // Ne pas oublier de l'exposer ici !
     setMagasin, 
     login, 
     logout, 
+    addChatMessage,
     loadPersistedStore,
     updateCartCount
   }
