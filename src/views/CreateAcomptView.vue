@@ -362,7 +362,6 @@ const confirmAndCreateAccount = async () => {
   feedback.value = "CRÉATION DE VOTRE COMPTE...";
 
   try {
-    // PHASE A : CRÉER L'ADRESSE DE FACTURATION
     const resAddr = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -374,12 +373,8 @@ const confirmAndCreateAccount = async () => {
         pays: "France"
       })
     });
-    if (!resAddr.ok) throw new Error("Erreur adresse facturation.");
+    if (!resAddr.ok) throw new Error("Erreur lors de l'enregistrement de l'adresse.");
     const adrFactData = await resAddr.json();
-
-    // PHASE B : CRÉER LE CLIENT (MDP HACHÉ)
-    const salt = bcrypt.genSaltSync(10);
-    const hashedMdp = bcrypt.hashSync(form.password, salt);
 
     const clientPayload = {
       idClient: 0,
@@ -387,7 +382,7 @@ const confirmAndCreateAccount = async () => {
       nomClient: form.nom.trim().toUpperCase(),
       prenomClient: form.prenomClient.trim(),
       emailClient: form.email.trim().toLowerCase(),
-      mdp: hashedMdp,
+      mdp: form.password, 
       tel: String(form.telephone || "").replace(/\s/g, ""),
       dateInscription: new Date().toISOString().split('T')[0], 
       dateNaissance: form.dateNaissance,
@@ -400,10 +395,10 @@ const confirmAndCreateAccount = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clientPayload)
     });
-    if (!resClient.ok) throw new Error("Erreur création client.");
+    
+    if (!resClient.ok) throw new Error("Erreur lors de la création du profil client.");
     const clientData = await resClient.json();
 
-    // PHASE C : GÉRER L'ADRESSE DE LIVRAISON
     let finalLivId = adrFactData.idAdresse;
     if (!sameAddress.value) {
       const resAddrLiv = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/PostAdresse', {
@@ -423,7 +418,6 @@ const confirmAndCreateAccount = async () => {
       }
     }
 
-    // PHASE D : LIAISON LIVRAISON
     await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/PostAdresseLivraison', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -436,7 +430,7 @@ const confirmAndCreateAccount = async () => {
     });
 
     isError.value = false;
-    feedback.value = "COMPTE CRÉÉ AVEC SUCCÈS ! REDIRECTION...";
+    feedback.value = "BIENVENUE CHEZ CUBE ! VOTRE COMPTE EST CRÉÉ.";
     
     setTimeout(() => {
       router.push('/login');
@@ -444,7 +438,7 @@ const confirmAndCreateAccount = async () => {
 
   } catch (err) {
     isError.value = true;
-    feedback.value = err.message;
+    feedback.value = err.message.toUpperCase();
   } finally {
     loading.value = false;
   }

@@ -23,7 +23,10 @@ export const useAppStore = defineStore('app', () => {
   function logout() {
     isConnected.value = false 
     user.value = null
+    cartItemCount.value = 0 
+    magasinChoisi.value = null 
     localStorage.removeItem('user')
+    localStorage.removeItem('selectedStore') 
   }
 
   function loadPersistedStore() {

@@ -53,7 +53,6 @@
 import { ref } from 'vue';
 import { useAppStore } from '../stores/useStore';
 import { useRouter } from 'vue-router';
-import bcrypt from 'bcryptjs';
 import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 
 const store = useAppStore();
@@ -65,6 +64,55 @@ const showPassword = ref(false);
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
+
+const handleLogin = async () => {
+    if (loading.value) return;
+    loading.value = true;
+    feedback.value = "";
+    isError.value = false;
+
+    const cleanEmail = email.value.trim().toLowerCase();
+    const cleanPassword = password.value.trim();
+
+    try {
+        const response = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/Login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                Email: cleanEmail,
+                Password: cleanPassword
+            })
+        });
+
+        if (!response.ok) {
+            const errorMsg = await response.text();
+            throw new Error(errorMsg || "EMAIL OU MOT DE PASSE INCORRECT.");
+        }
+
+        const userData = await response.json();
+
+        store.login(userData);
+        isError.value = false;
+        feedback.value = "CONNEXION RÉUSSIE !";
+
+        setTimeout(() => {
+            if (userData.role === 'commercial') {
+                router.push('/espace-commercial');
+            } else {
+                router.push('/');
+            }
+        }, 1500);
+
+    } catch (err) {
+        isError.value = true;
+        feedback.value = err.message.toUpperCase();
+        console.error("Erreur login:", err);
+    } finally {
+        loading.value = false;
+    }
+};
 
 const handleGoogleSuccess = async (response) => {
     const { credential } = response;
@@ -81,12 +129,28 @@ const handleGoogleSuccess = async (response) => {
         const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
 
         if (!res.ok) {
-            throw new Error("AUCUN COMPTE ASSOCIÉ À CET EMAIL GOOGLE. VEUILLEZ VOUS INSCRIRE.");
+            const nouveauClientGoogle = {
+                nomClient: userDataGoogle.family_name || "Utilisateur",
+                prenomClient: userDataGoogle.given_name || "Google",
+                emailClient: cleanEmail,
+                googleId: userDataGoogle.sub, 
+                role: "client"
+            };
+
+            const createRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PostClient`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(nouveauClientGoogle)
+            });
+            
+            const newUser = await createRes.json();
+            store.login(newUser);
+            router.push('/');
+            return;
         }
 
         const userData = await res.json();
 
-        // CONNEXION RÉUSSIE (Pas besoin de bcrypt ici, Google est la preuve de confiance)
         store.login(userData);
         feedback.value = `RAVI DE VOUS REVOIR, ${userData.prenomClient} !`;
 
@@ -110,63 +174,8 @@ const handleGoogleError = () => {
     isError.value = true;
     feedback.value = "L'AUTHENTIFICATION GOOGLE A ÉCHOUÉ.";
 };
-
-const handleLogin = async () => {
-    if (loading.value) return;
-    loading.value = true;
-    feedback.value = "";
-    isError.value = false;
-
-    // Nettoyage des saisies (évite les erreurs de copier-coller)
-    const cleanEmail = email.value.trim().toLowerCase();
-    const cleanPassword = password.value.trim();
-
-    try {
-        // 1. Récupération du client par Email
-        const response = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
-
-        if (!response.ok) {
-            // Si le statut n'est pas 200, l'email n'existe probablement pas
-            throw new Error("Compte inexistant ou erreur réseau.");
-        }
-
-        const userData = await response.json();
-
-        // 2. Vérification du mot de passe (L'API renvoie le hash $2a$)
-        let isMatch = false;
-
-        
-        
-        isMatch = bcrypt.compareSync(cleanPassword, userData.mdp);
-        if (isMatch) {
-            // 3. Succès : Stockage dans Pinia et redirection
-            store.login(userData);
-            
-            isError.value = false;
-            feedback.value = "CONNEXION RÉUSSIE !";
-
-            setTimeout(() => {
-                // REDIRECTION CONDITIONNELLE SELON LE RÔLE
-                if (userData.role === 'commercial') {
-                    router.push('/espace-commercial');
-                } else {
-                    router.push('/');
-                }
-            }, 1500);
-        } else {
-            // Si l'email existe mais que le hash ne correspond pas
-            throw new Error("Mot de passe incorrect.");
-        }
-
-    } catch (err) {
-        isError.value = true;
-        feedback.value = err.message;
-        console.error("Détail erreur login:", err);
-    } finally {
-        loading.value = false;
-    }
-};
 </script>
+
 <style scoped>
 @font-face {
   font-family: 'CubeFont';
