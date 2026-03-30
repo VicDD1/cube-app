@@ -50,38 +50,39 @@ const prev = () => {
     <div class="hero-slider">
       <div class="top-gradient"></div>
 
-      <transition-group name="fade" tag="div" class="slides-wrapper">
-  <div 
-    v-for="(slide, index) in slides" 
-    :key="index"
-    v-show="currentIndex === index"
-    class="slide"
-  >
-    <img 
-      :src="slide.image" 
-      :alt="slide.titleSolid"
-      class="slide-bg-img"
-      :fetchpriority="index === 0 ? 'high' : 'auto'"
-      :loading="index === 0 ? 'eager' : 'lazy'"
-    />
-    
-    <div class="content">
-      <div class="controls">
-        <button @click="prev" class="arrow-btn">❮</button>
-        <button @click="next" class="arrow-btn">❯</button>
-      </div>
-      <p class="tag">{{ slide.tag }}</p>
-      <h1 class="main-title">
-        <span class="solid">{{ slide.titleSolid }}</span><br>
-        <span class="outline">{{ slide.titleOutline }}</span>
-      </h1>
-      <p class="desc">{{ slide.desc }}</p>
-      <a href="#" class="action-link">
-        <span class="triangle">▶</span> {{ slide.linkText }}
-      </a>
-    </div>
-  </div>
-</transition-group>
+        <transition-group name="fade" tag="div" class="slides-wrapper">
+          <div 
+            v-for="(slide, index) in slides" 
+            :key="index"
+            v-show="currentIndex === index"
+            class="slide"
+          >
+            <img 
+              v-if="currentIndex === index || index === 0"
+              :src="slide.image" 
+              :alt="slide.titleSolid"
+              class="slide-bg-img"
+              :fetchpriority="index === 0 ? 'high' : 'auto'"
+              :loading="index === 0 ? 'eager' : 'lazy'"
+            />
+
+            <div class="content">
+              <div class="controls">
+                <button @click="prev" class="arrow-btn" aria-label="Précédent">❮</button>
+                <button @click="next" class="arrow-btn" aria-label="Suivant">❯</button>
+              </div>
+              <p class="tag">{{ slide.tag }}</p>
+              <h1 class="main-title">
+                <span class="solid">{{ slide.titleSolid }}</span><br>
+                <span class="outline">{{ slide.titleOutline }}</span>
+              </h1>
+              <p class="desc">{{ slide.desc }}</p>
+              <a href="#" class="action-link">
+                <span class="triangle">▶</span> {{ slide.linkText }}
+              </a>
+            </div>
+          </div>
+        </transition-group>
     </div>
 
     <section class="category-section">
@@ -211,6 +212,7 @@ const prev = () => {
 
 .slides-wrapper { position: relative; width: 100%; height: 100%; }
 
+
 .slide {
   position: absolute; 
   top: 0; 
@@ -219,19 +221,21 @@ const prev = () => {
   height: 100%;
   display: flex; 
   align-items: center;
-  overflow: hidden; /* Sécurité pour l'image */
+  overflow: hidden;
 }
 
+/* Nouveau style pour l'image remplaçant le background-image */
 .slide-bg-img {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Equivalent à background-size: cover */
+  object-fit: cover;     /* Equivalent à background-size: cover */
   object-position: center; /* Equivalent à background-position: center */
-  z-index: 1; /* Derrière le contenu */
+  z-index: 1;            /* Reste derrière le texte */
 }
+
 
 .content {
   position: relative; 
