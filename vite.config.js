@@ -1,5 +1,4 @@
 import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
@@ -12,11 +11,15 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      // C'est ici que l'on définit le racourci "@" vers le dossier "src"
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
-  // --- AJOUT DE LA PARTIE SERVEUR / PROXY ---
   server: {
+    watch: {
+      ignored: ['**/src/assets/images/VELOS/**'],
+    },
+  
     proxy: {
       '/api-azure': {
         target: 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net',

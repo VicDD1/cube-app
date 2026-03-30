@@ -35,35 +35,32 @@ const selectStripe = async () => {
   isPaypalLoading.value = true 
   
   try {
-    // Note : Assurez-vous que le port correspond à celui de votre serveur (3000 ou 4242)
+    // Vérifiez bien que ce serveur tourne sur votre PC !
     const response = await fetch('http://localhost:4242/create-checkout-session', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         amount: finalTotalCart.value,
         customerName: appStore.user?.prenomClient || 'Client CUBE'
       }),
     })
 
-    const session = await response.json()
-
-    if (session.error) {
-      throw new Error(session.error)
+    if (!response.ok) {
+        throw new Error("Le serveur de paiement ne répond pas (Vérifiez si node server.js est lancé)");
     }
 
-    // Redirection directe vers la page de paiement sécurisée de Stripe
+    const session = await response.json()
+
     if (session.url) {
       window.location.href = session.url
     }
   } catch (err) {
-    console.error("Erreur lors de la liaison avec le serveur Stripe :", err)
+    console.error("Erreur Stripe :", err)
+    alert("Impossible de joindre le service de paiement. Veuillez réessayer plus tard.")
   } finally {
     isPaypalLoading.value = false
   }
 }
-
 // --- INITIALISATION PAYPAL SDK ---
 const initPayPal = async () => {
   isPaypalLoading.value = true
