@@ -10,7 +10,6 @@
         </header>
   
         <div class="button-grid">
-          
           <button class="action-btn active-btn" @click="goToAddCategory">
             AJOUTER UNE CATÉGORIE
           </button>
@@ -27,6 +26,12 @@
             GÉRER STOCKS & INFOS
           </button>
         </div>
+
+        <div class="logout-section">
+          <button class="logout-btn" @click="handleLogout">
+            SE DÉCONNECTER
+          </button>
+        </div>
       </div>
     </main>
   </template>
@@ -39,7 +44,7 @@
     const router = useRouter();
 
     const goToAddCategory = () => {
-    router.push('/espace-commercial/ajouter-categorie');
+      router.push('/espace-commercial/ajouter-categorie');
     };
 
     const goToAddModele = () => {
@@ -52,6 +57,12 @@
 
     const goToModifyVariante = () => {
       router.push('/espace-commercial/modifier-variante');
+    };
+
+    // FONCTION DE DÉCONNEXION
+    const handleLogout = () => {
+      store.logout(); // On vide le store et le localStorage
+      router.push('/'); // Retour à l'accueil
     };
   </script>
   
@@ -124,17 +135,42 @@
   }
   
   .active-btn {
-  color: #000;
-  border-color: #000;
-  cursor: pointer;
-  background-color: #fff;
-}
+    color: #000;
+    border-color: #000;
+    cursor: pointer;
+    background-color: #fff;
+  }
 
-.active-btn:hover {
-  background-color: #00a8e8;
-  color: #fff;
-  border-color: #00a8e8;
-}
+  .active-btn:hover {
+    background-color: #00a8e8;
+    color: #fff;
+    border-color: #00a8e8;
+  }
+
+  /* STYLES DU BOUTON DE DÉCONNEXION */
+  .logout-section {
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .logout-btn {
+    padding: 12px 30px;
+    background-color: transparent;
+    color: #cc0000; /* Rouge vif pour le danger/déconnexion */
+    border: 2px solid #cc0000;
+    font-family: 'CubeFont', sans-serif;
+    font-weight: 800;
+    font-style: italic;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .logout-btn:hover {
+    background-color: #cc0000;
+    color: #fff;
+  }
   
   @media (max-width: 600px) {
     .button-grid {

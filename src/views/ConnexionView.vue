@@ -98,10 +98,13 @@ const handleLogin = async () => {
         feedback.value = "CONNEXION RÉUSSIE !";
 
         setTimeout(() => {
-            if (userData.role === 'commercial') {
+            // Sécurité anti-majuscules/espaces
+            const userRole = userData.role ? userData.role.trim().toLowerCase() : 'client';
+            
+            if (userRole === 'commercial') {
                 router.push('/espace-commercial');
             } else {
-                router.push('/');
+                router.push('/'); // Ou vers /profil si tu préfères
             }
         }, 1500);
 
@@ -155,7 +158,10 @@ const handleGoogleSuccess = async (response) => {
         feedback.value = `RAVI DE VOUS REVOIR, ${userData.prenomClient} !`;
 
         setTimeout(() => {
-            if (userData.role === 'commercial') {
+            // Même sécurité ici
+            const userRole = userData.role ? userData.role.trim().toLowerCase() : 'client';
+            
+            if (userRole === 'commercial') {
                 router.push('/espace-commercial');
             } else {
                 router.push('/');
