@@ -51,30 +51,37 @@ const prev = () => {
       <div class="top-gradient"></div>
 
       <transition-group name="fade" tag="div" class="slides-wrapper">
-        <div 
-          v-for="(slide, index) in slides" 
-          :key="index"
-          v-show="currentIndex === index"
-          class="slide"
-          :style="{ backgroundImage: `url(${slide.image})` }"
-        >
-          <div class="content">
-            <div class="controls">
-              <button @click="prev" class="arrow-btn">❮</button>
-              <button @click="next" class="arrow-btn">❯</button>
-            </div>
-            <p class="tag">{{ slide.tag }}</p>
-            <h1 class="main-title">
-              <span class="solid">{{ slide.titleSolid }}</span><br>
-              <span class="outline">{{ slide.titleOutline }}</span>
-            </h1>
-            <p class="desc">{{ slide.desc }}</p>
-            <a href="#" class="action-link">
-              <span class="triangle">▶</span> {{ slide.linkText }}
-            </a>
-          </div>
-        </div>
-      </transition-group>
+  <div 
+    v-for="(slide, index) in slides" 
+    :key="index"
+    v-show="currentIndex === index"
+    class="slide"
+  >
+    <img 
+      :src="slide.image" 
+      :alt="slide.titleSolid"
+      class="slide-bg-img"
+      :fetchpriority="index === 0 ? 'high' : 'auto'"
+      :loading="index === 0 ? 'eager' : 'lazy'"
+    />
+    
+    <div class="content">
+      <div class="controls">
+        <button @click="prev" class="arrow-btn">❮</button>
+        <button @click="next" class="arrow-btn">❯</button>
+      </div>
+      <p class="tag">{{ slide.tag }}</p>
+      <h1 class="main-title">
+        <span class="solid">{{ slide.titleSolid }}</span><br>
+        <span class="outline">{{ slide.titleOutline }}</span>
+      </h1>
+      <p class="desc">{{ slide.desc }}</p>
+      <a href="#" class="action-link">
+        <span class="triangle">▶</span> {{ slide.linkText }}
+      </a>
+    </div>
+  </div>
+</transition-group>
     </div>
 
     <section class="category-section">
@@ -82,7 +89,12 @@ const prev = () => {
       <div class="category-grid">
         
         <a href="/velo" class="category-card">
-          <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&q=80&w=800');"></div>
+          <img 
+              src="https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?q=60&w=800" 
+              alt="Vélos musculaires"
+              loading="lazy"
+              class="card-bg-img"
+            />
           <div class="card-content">
             <h3>VÉLOS MUSCULAIRES</h3>
             <span class="btn-link">Découvrir <ArrowRight :size="18" /></span>
@@ -90,7 +102,12 @@ const prev = () => {
         </a>
 
         <a href="/velos-electriques" class="category-card">
-          <div class="card-bg" style="background-image: url('https://images.unsplash.com/photo-1571188654248-7a89213915f7?auto=format&fit=crop&q=80&w=800');"></div>
+          <img 
+              src="https://images.unsplash.com/photo-1571188654248-7a89213915f7?auto=format&fit=crop&q=60&w=800" 
+              alt="Vélos électriques"
+              loading="lazy"
+              class="card-bg-img"
+            />
           <div class="card-content">
             <h3>VÉLOS ÉLECTRIQUES</h3>
             <span class="btn-link">Découvrir <ArrowRight :size="18" /></span>
@@ -98,7 +115,12 @@ const prev = () => {
         </a>
 
         <a href="/accessoires" class="category-card">
-          <div class="card-bg" style="background-image: url('https://www.bike.tn/wp-content/uploads/2025/03/Liste-accessoires-indispensables-velo.jpg');"></div>
+          <img 
+              src="https://www.bike.tn/wp-content/uploads/2025/03/Liste-accessoires-indispensables-velo.jpg" 
+              alt="Accessoires"
+              loading="lazy"
+              class="card-bg-img"
+            />
           <div class="card-content">
             <h3>ACCESSOIRES</h3>
             <span class="btn-link">Découvrir <ArrowRight :size="18" /></span>
@@ -190,14 +212,33 @@ const prev = () => {
 .slides-wrapper { position: relative; width: 100%; height: 100%; }
 
 .slide {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background-size: cover; background-position: center;
-  display: flex; align-items: center;
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%;
+  display: flex; 
+  align-items: center;
+  overflow: hidden; /* Sécurité pour l'image */
+}
+
+.slide-bg-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Equivalent à background-size: cover */
+  object-position: center; /* Equivalent à background-position: center */
+  z-index: 1; /* Derrière le contenu */
 }
 
 .content {
-  position: relative; z-index: 20; margin-left: 10%;
-  max-width: 800px; color: white;
+  position: relative; 
+  z-index: 20; /* Devant l'image */
+  margin-left: 10%;
+  max-width: 800px; 
+  color: white;
 }
 
 .controls { display: flex; gap: 15px; margin-bottom: 25px; }
