@@ -101,7 +101,7 @@ const submitNewAddress = async () => {
       cp: form.cp,
       ville: form.ville,
       pays: form.pays,
-      isDefault: false,
+      isDefault: false, // Laisse false si tu ne veux pas le badge "PRINCIPALE"
       canDelete: true
     })
 
@@ -122,12 +122,13 @@ const fetchAdresses = async () => {
   try {
     const listAdresses = []
 
+    // 1. ADRESSE DE FACTURATION
     if (appStore.user.idAdresseFacturation) {
       const resFact = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/GetAdresseById/${appStore.user.idAdresseFacturation}`)
       if (resFact.ok) {
         const adrFact = await resFact.json()
         listAdresses.push({
-          id: adrFact.idAdresse,
+          idAdresse: adrFact.idAdresse,
           type: 'FACTURATION',
           prenom: appStore.user.prenomClient,
           nom: appStore.user.nomClient,
@@ -135,19 +136,19 @@ const fetchAdresses = async () => {
           cp: adrFact.codePostal,
           ville: adrFact.ville,
           pays: adrFact.pays || 'France',
-          isDefault: true,
+          isDefault: true, 
           canDelete: false
         })
       }
     }
 
+    // 2. ADRESSES DE LIVRAISON
     const resLiv = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/GetByClient/${appStore.user.idClient}`)
     if (resLiv.ok) {
       const dataLiv = await resLiv.json()
       const livraisons = dataLiv.$values || dataLiv || []
       livraisons.forEach(liv => {
         const adrDetail = liv.adresseNavigation || liv.adresse || liv
-        if (adrDetail.idAdresse !== appStore.user.idAdresseFacturation) {
           listAdresses.push({
             idAdresse: adrDetail.idAdresse,
             idClient: appStore.user.idClient,
@@ -161,7 +162,6 @@ const fetchAdresses = async () => {
             isDefault: false,
             canDelete: true
           })
-        }
       })
     }
     adresses.value = listAdresses
@@ -212,7 +212,7 @@ const modifierAdresse = (adr) => {
         <p>AJOUTER UNE ADRESSE DE LIVRAISON</p>
       </div>
 
-      <div v-for="adr in adresses" :key="adr.idAdresse || adr.id" class="address-card">
+      <div v-for="adr in adresses" :key="adr.idAdresse" class="address-card">
         <div class="card-header">
           <span :class="['badge-type', adr.type === 'FACTURATION' ? 'badge-fact' : 'badge-liv']">{{ adr.type }}</span>
           <span v-if="adr.isDefault" class="badge-default">PRINCIPALE</span>
@@ -223,8 +223,8 @@ const modifierAdresse = (adr) => {
           <p class="address-line">{{ adr.cp }} {{ adr.ville?.toUpperCase() }}</p>
           <p class="address-line country">{{ adr.pays?.toUpperCase() }}</p>
         </div>
-        <div class="card-footer">
-          <button class="btn-action edit" @click="modifierAdresse(adr)">Modifier</button>
+        <div class="card-footer" v-if="adr.canDelete || adr.type === 'FACTURATION'">
+          <button v-if="adr.type === 'LIVRAISON'" class="btn-action edit" @click="modifierAdresse(adr)">Modifier</button>
           <template v-if="adr.canDelete">
             <span class="divider">|</span>
             <button class="btn-action delete" @click="supprimerAdresse(adr)">Supprimer</button>
@@ -337,7 +337,7 @@ const modifierAdresse = (adr) => {
 .address-line { font-size: 0.9rem; color: #555; margin: 0 0 5px 0; line-height: 1.4; }
 .country { font-weight: 800; color: #111; margin-top: 10px; }
 
-.card-footer { border-top: 1px solid #eaeaea; padding-top: 15px; display: flex; align-items: center; gap: 15px; }
+.card-footer { border-top: 1px solid #eaeaea; padding-top: 15px; display: flex; align-items: center; gap: 15px; min-height: 35px;} /* min-height pour alignement si facturation n'a pas de bouton */
 .btn-action { background: none; border: none; padding: 0; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: color 0.2s; }
 .btn-action.edit { color: #888; text-decoration: underline; }
 .btn-action.edit:hover { color: #000; }
