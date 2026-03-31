@@ -46,6 +46,10 @@ const allRawCategories = ref([]) // Pour la recherche des sous-catégories
 const showAllColors = ref(false)
 const COLORS_LIMIT = 5
 
+// --- Pagination ---
+const currentPage = ref(1)
+const itemsPerPage = 15
+
 // --- Récupération des catégories ---
 const fetchCategories = async () => {
   try {
@@ -182,21 +186,19 @@ const resetFilters = () => {
   selectedCategories.value = []
   searchQuery.value = ''
   showAllColors.value = false
+  currentPage.value = 1
 }
 
 // --- Synchronisation de l'URL avec les cases de la sidebar ---
 const syncFiltersFromUrl = () => {
-  // On réinitialise uniquement les autres filtres (prix, couleur...)
   filterPrice.value = maxPrice.value
   selectedColors.value = []
   searchQuery.value = ''
   showAllColors.value = false
+  currentPage.value = 1
   
   const fId = Number(route.query.filterId)
   if (route.query.filterType === 'categorie' && fId) {
-    // 🔴 LA CORRECTION EST ICI : 
-    // On force la valeur dans selectedCategories immédiatement. 
-    // Vue cochera la case automatiquement dès qu'elle apparaîtra à l'écran !
     selectedCategories.value = [fId]
   } else {
     selectedCategories.value = []
@@ -209,29 +211,25 @@ const modelesAffichés = computed(() => {
 
   let baseList = allData.value
 
-  // 1. Filtrage d'un modèle spécifique (Uniquement par URL car il n'y a pas de case "Modèle" à gauche)
   if (route.query.filterType === 'modele' && route.query.filterId && selectedCategories.value.length === 0) {
     const fId = Number(route.query.filterId)
     baseList = baseList.filter(item => item.idModeleNavigation?.idModele === fId)
   }
 
-  // 2. Gestion des Catégories (Prend les cases cochées ET l'URL car syncFiltersFromUrl les a unifiés)
   let idsValides = [...selectedCategories.value]
   
   if (idsValides.length > 0) {
-    // Si on a coché (ou cliqué via le menu) une catégorie parent, on va chercher toutes ses sous-catégories
     const trouverEnfants = (idParent) => {
       allRawCategories.value.forEach(cat => {
         if (cat.catIdCategorie === idParent && !idsValides.includes(cat.idCategorie)) {
           idsValides.push(cat.idCategorie)
-          trouverEnfants(cat.idCategorie) // Recherche récursive
+          trouverEnfants(cat.idCategorie) 
         }
       })
     }
     selectedCategories.value.forEach(id => trouverEnfants(id))
   }
 
-  // 3. Application de TOUS les filtres sur les vélos
   return baseList.filter(item => {
     const itemPrice = item.prix || 0
     const matchPrice = itemPrice <= filterPrice.value
@@ -242,7 +240,6 @@ const modelesAffichés = computed(() => {
     const isAccessoire = props.typeArticle === 'Accessoires'
     const idCat = isAccessoire ? item.idCategorie : item.idModeleNavigation?.idCategorie
     
-    // Si aucune case cochée -> on affiche tout. Sinon, on vérifie si la catégorie est dans notre liste d'IDs valides
     const matchCategory = idsValides.length === 0 || idsValides.includes(idCat)
 
     const searchTerm = searchQuery.value.toLowerCase().trim()
@@ -252,6 +249,27 @@ const modelesAffichés = computed(() => {
     
     return matchPrice && matchColor && matchCategory && matchSearch
   })
+})
+
+// --- Pagination Computed & Methods ---
+const totalPages = computed(() => Math.ceil(modelesAffichés.value.length / itemsPerPage))
+
+const paginatedModeles = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  const end = start + itemsPerPage
+  return modelesAffichés.value.slice(start, end)
+})
+
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    scrollToShop()
+  }
+}
+
+// Retourner à la page 1 si les résultats filtrés changent
+watch(modelesAffichés, () => {
+  currentPage.value = 1
 })
 
 // --- Computed : Recommandations ---
@@ -274,7 +292,6 @@ watch(() => props.typeVelo, async () => {
   syncFiltersFromUrl()
 })
 
-// Quand l'URL change (clic dans le mega-menu), on force la case à se cocher
 watch(() => route.query, () => {
   syncFiltersFromUrl()
 })
@@ -397,12 +414,43 @@ onMounted(async () => {
         <main class="main-content">
           <div v-if="loading" class="loader">Chargement des produits...</div>
 
-          <div v-else class="products-grid">
-            <CardArticle 
-              v-for="item in modelesAffichés" 
-              :key="item.reference" 
-              :article="item" 
-            />
+          <div v-else class="products-container">
+            <div class="products-grid">
+              <CardArticle 
+                v-for="item in paginatedModeles" 
+                :key="item.reference" 
+                :article="item" 
+              />
+            </div>
+
+            <div v-if="totalPages > 1" class="pagination-wrapper">
+              <button 
+                class="page-btn nav-btn" 
+                :disabled="currentPage === 1" 
+                @click="goToPage(currentPage - 1)"
+              >
+                &#10216; Précédent
+              </button>
+              
+              <div class="page-numbers">
+                <button 
+                  v-for="page in totalPages" 
+                  :key="page"
+                  @click="goToPage(page)"
+                  :class="['page-btn number-btn', { active: currentPage === page }]"
+                >
+                  {{ page }}
+                </button>
+              </div>
+
+              <button 
+                class="page-btn nav-btn" 
+                :disabled="currentPage === totalPages" 
+                @click="goToPage(currentPage + 1)"
+              >
+                Suivant &#10217;
+              </button>
+            </div>
           </div>
 
           <div v-if="!loading && modelesAffichés.length === 0" class="no-results-container">
@@ -473,7 +521,7 @@ onMounted(async () => {
 .count { font-weight: 700; text-transform: uppercase; font-size: 0.85rem; color: #555; margin: 0; }
 .clear-search { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #555; }
 
-/* --- SIDEBAR & FILTRES (Mode Bloc Intégré) --- */
+/* --- SIDEBAR & FILTRES --- */
 .sidebar { 
   width: 310px; flex-shrink: 0; position: relative; 
   background-color: #f0f0f0; padding: 40px 30px; border-radius: 25px; 
@@ -507,7 +555,6 @@ onMounted(async () => {
 .sr-only:checked + .color-label .color-name { color: #000; }
 .sr-only:checked + .color-label .color-circle { transform: scale(1.2); border: 2px solid #000; }
 
-/* Bouton Voir + (Bleu Vif) */
 .btn-toggle-colors {
   background-color: #00A3E0; color: #ffffff; border: none; width: 100%; height: 45px; border-radius: 50px;
   font-family: 'Inter', sans-serif; font-size: 0.8rem; font-weight: 900; text-transform: uppercase;
@@ -524,10 +571,25 @@ legend { padding: 0; width: 100%; }
   outline: 3px solid #00A3E0; outline-offset: 4px; border-radius: 4px;
 }
 
-/* --- CONTENU --- */
-.main-content { flex-grow: 1; }
-.products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px; }
+/* --- CONTENU & PAGINATION --- */
+.main-content { flex-grow: 1; display: flex; flex-direction: column; }
+.products-container { display: flex; flex-direction: column; min-height: 800px; justify-content: space-between; }
+.products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px; margin-bottom: 60px; }
 .loader { text-align: center; padding: 100px 0; font-size: 1.1rem; font-weight: 700; color: #bbb; text-transform: uppercase; }
+
+.pagination-wrapper { 
+  display: flex; justify-content: center; align-items: center; gap: 20px; margin: 40px 0 80px; 
+}
+.page-numbers { display: flex; gap: 8px; }
+.page-btn {
+  background: #f0f0f0; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-weight: 700; color: #333; transition: all 0.2s ease;
+}
+.page-btn:hover:not(:disabled) { background: #e0e0e0; }
+.page-btn.active { background: #000; color: #fff; }
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.number-btn { width: 40px; padding: 10px 0; text-align: center; }
+.nav-btn { text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
 
 /* --- SECTION AUCUN RÉSULTAT --- */
 .no-results-container { text-align: center; padding: 40px 0; }
