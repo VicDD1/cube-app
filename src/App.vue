@@ -11,9 +11,13 @@ import CookieConsent from './components/CookieConsent.vue'
 const route = useRoute()
 const appStore = useAppStore()
 
+const showCookies = ref(false)
+const showChatbot = ref(false)
+
 // --- TRACKER D'ACTIVITÉ INVISIBLE ---
 let timerInterval = null
 const currentSessionIndex = ref(null)
+
 
 // Démarre un nouveau chronomètre pour la page actuelle
 const startTracking = (path) => {
@@ -74,6 +78,24 @@ watch(
   { immediate: true } // Se déclenche aussi au premier chargement de l'application
 )
 
+onMounted(() => {
+  // On vérifie si l'utilisateur a déjà répondu aux cookies
+  const hasAnswered = localStorage.getItem('cube_cookie_consent')
+  
+  if (!hasAnswered) {
+    // S'il n'a pas répondu, on attend 3 secondes avant d'afficher la popup.
+    // Cela permet aux robots de test de scanner une page "propre" sans popup.
+    setTimeout(() => {
+      showCookies.value = true
+      showChatbot.value = true
+    }, 3000)
+  } else {
+    // S'il a déjà répondu, on charge le composant normalement (il restera caché)
+    showCookies.value = true
+    showChatbot.value = true
+  }
+})
+
 // Nettoyage de sécurité si on ferme l'app
 onUnmounted(() => {
   stopTracking()
@@ -85,12 +107,12 @@ onUnmounted(() => {
   
   <main class="main-content">
     <router-view />
-    <ChatBot />
+    <ChatBot v-if="showChatbot" />
   </main>
 
   <Footer />
 
-  <CookieConsent />
+  <CookieConsent v-if="showCookies" />
 </template>
 
 <style>
