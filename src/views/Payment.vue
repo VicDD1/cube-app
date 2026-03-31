@@ -31,8 +31,6 @@ const insertionCommande = async () => {
     return false;
   }
 
-  // L'astuce ici est d'envoyer des objets qui contiennent l'ID attendu
-  // Cela satisfait le validateur qui croit recevoir l'objet complet.
   const commandeData = {
     idClient: parseInt(idClient.value),
     idAdresse: 10, 
@@ -45,23 +43,13 @@ const insertionCommande = async () => {
     typePaiement: "CB",
     statutLivraison: "prepare",
 
-    // ON SIMULE LES OBJETS DE NAVIGATION AVEC LEURS IDS
-    idClientNavigation: { idClient: parseInt(idClient.value) },
-    idPanierNavigation: { idPanier: parseInt(cart.value.idPanier) },
-    idAdresseNavigation: { idAdresse: 10 },
-    idTypeLivraisonNavigation: { idTypeLivraison: 2 },
-
     ligneCommandes: cart.value.lignePaniers.map(item => ({
       reference: item.reference.trim(),
-      quantiteCommande: parseInt(item.quantiteSelectionnee),
-      prixUnitaireCommande: parseFloat(item.prixUnitaire),
-      tailleSelectionnee: item.tailleSelectionnee || "M",
-      
-      // Objets de navigation pour chaque ligne
-      referenceNavigation: { reference: item.reference.trim() },
-      idCommandeNavigation: { idTypeLivraison: 2 } // On met n'importe quel champ requis ici
-    })),
-    retourArticles: []
+      idCommande: 0, 
+      quantiteArticleCommande: parseInt(item.quantiteSelectionnee),
+      prixUnitaireArticle: parseFloat(item.prixUnitaire),
+      tailleSelectionnee: item.tailleSelectionnee || "M"
+    }))
   };
 
   console.log("🚀 Tentative d'insertion avec objets de navigation simulés...", commandeData);
