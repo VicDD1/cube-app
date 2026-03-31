@@ -1,120 +1,172 @@
 <template>
-    <main class="login-page">
-        <div class="auth-card">
-            <header class="card-header">
-            <h1>CONNEXION</h1>
+  <main class="login-page">
+    <div class="auth-card">
+      <header class="card-header">
+        <h1>{{ step === 1 ? 'CONNEXION' : 'VÉRIFICATION SÉCURISÉE' }}</h1>
         <div class="separator"></div>
-        </header>
-        
-        <form @submit.prevent="handleLogin">
-            <div class="field-group">
-                <label>ADRESSE EMAIL</label>
-                <input type="email" v-model="email" placeholder="NOM@EXEMPLE.COM" required>
-            </div>
-            <div class="field-group password-container">
-                <label>MOT DE PASSE</label>
-                <div class="input-wrapper">
-                    <input 
-                        :type="showPassword ? 'text' : 'password'" 
-                        v-model="password" 
-                        placeholder="••••••••" 
-                        required
-                    >
-                    <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
-                        {{ showPassword ? 'CACHER' : 'VOIR' }}
-                    </button>
-                </div>
-            </div>
-            
+      </header>
+
+      <form v-if="step === 1" @submit.prevent="handleLogin">
+        <div class="field-group">
+          <label>ADRESSE EMAIL</label>
+          <input type="email" v-model="email" placeholder="NOM@EXEMPLE.COM" required>
+        </div>
+        <div class="field-group">
+          <label>MOT DE PASSE</label>
+          <div class="input-wrapper">
+            <input :type="showPassword ? 'text' : 'password'" v-model="password" placeholder="••••••••" required>
+            <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
+              {{ showPassword ? 'CACHER' : 'VOIR' }}
+            </button>
+          </div>
+        </div>
+
         <transition name="fade">
-            <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">
-                {{ feedback }}
-            </div>
+          <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">
+            {{ feedback }}
+          </div>
         </transition>
-            
+
         <button type="submit" :disabled="loading" class="submit-btn">
-            {{ loading ? 'VÉRIFICATION...' : 'SE CONNECTER' }}
+          {{ loading ? 'PATIENTEZ...' : 'SE CONNECTER' }}
         </button>
-        <div class="google-divider">
-            <span>OU</span>
-        </div>
-        
+
+        <div class="google-divider"><span>OU</span></div>
         <div class="google-auth-container">
-            <GoogleSignInButton
-                @success="handleGoogleSuccess"
-                @error="handleGoogleError"
-            />
+          <GoogleSignInButton @success="handleGoogleSuccess" @error="handleGoogleError" />
         </div>
-        </form>
+      </form>
+
+      <div v-else class="verification-container">
+        <p class="verification-info" style="text-align: center; font-size: 11px; margin-bottom: 20px;">
+          L'authentification à deux facteurs est activée.<br>
+          Saisissez le code envoyé à <strong>{{ email }}</strong>.
+        </p>
+        
+        <div class="field-group">
+          <label>CODE DE SÉCURITÉ</label>
+          <input 
+            type="text" 
+            v-model="userEnteredCode" 
+            placeholder="000000" 
+            maxlength="6" 
+            style="text-align: center; letter-spacing: 5px; font-size: 20px;"
+            required
+          >
+        </div>
+
+        <transition name="fade">
+          <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">
+            {{ feedback }}
+          </div>
+        </transition>
+
+        <div class="button-group" style="display: flex; flex-direction: column; gap: 10px;">
+          <button @click="confirmA2F" :disabled="loading" class="submit-btn">
+            VALIDER LE CODE
+          </button>
+          <button @click="step = 1" class="back-btn">
+            RETOUR
+          </button>
+        </div>
+      </div>
     </div>
-    </main>
+  </main>
 </template>
 <script setup>
 import { ref } from 'vue';
 import { useAppStore } from '../stores/useStore';
 import { useRouter } from 'vue-router';
 import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
+import emailjs from '@emailjs/browser';
 
-const store = useAppStore();
-const router = useRouter();
-
+const step = ref(1); // 1: Login, 2: Code A2F
 const email = ref('');
 const password = ref('');
+const userEnteredCode = ref('');
+const generatedCode = ref('');
+const pendingUser = ref(null); // Stocke l'user en attendant le code
+
 const showPassword = ref(false); 
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
+const store = useAppStore();
+const router = useRouter();
 
 const handleLogin = async () => {
     if (loading.value) return;
     loading.value = true;
-    feedback.value = "";
+    feedback.value = "VÉRIFICATION...";
     isError.value = false;
-
-    const cleanEmail = email.value.trim().toLowerCase();
-    const cleanPassword = password.value.trim();
 
     try {
         const response = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/Login`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                Email: cleanEmail,
-                Password: cleanPassword
+                Email: email.value.trim().toLowerCase(),
+                Password: password.value.trim()
             })
         });
 
         if (!response.ok) {
-            const errorMsg = await response.text();
-            throw new Error(errorMsg || "EMAIL OU MOT DE PASSE INCORRECT.");
+            throw new Error("EMAIL OU MOT DE PASSE INCORRECT.");
         }
 
         const userData = await response.json();
 
-        store.login(userData);
-        isError.value = false;
-        feedback.value = "CONNEXION RÉUSSIE !";
+        // LOGIQUE A2F : Si activé, on génère le code et on change de step
+        if (userData.doubleAuth) {
+            pendingUser.value = userData;
+            generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
 
-        setTimeout(() => {
-            // Sécurité anti-majuscules/espaces
-            const userRole = userData.role ? userData.role.trim().toLowerCase() : 'client';
-            
-            if (userRole === 'commercial') {
-                router.push('/espace-commercial');
-            } else {
-                router.push('/'); // Ou vers /profil si tu préfères
-            }
-        }, 1500);
+            // ENVOI EMAIL VIA EMAILJS (Utilise tes IDs)
+            await emailjs.send(
+                'service_ues7qi8', 
+                'template_by4mad9', 
+                {
+                    to_name: userData.prenomClient,
+                    to_email: userData.emailClient,
+                    code: generatedCode.value
+                },
+                '9lPdrD2WOpVRdpwJO'
+            );
+
+            step.value = 2;
+            feedback.value = ""; 
+        } else {
+            // Pas d'A2F, connexion directe
+            finalizeLogin(userData);
+        }
 
     } catch (err) {
         isError.value = true;
         feedback.value = err.message.toUpperCase();
-        console.error("Erreur login:", err);
     } finally {
         loading.value = false;
     }
+};
+
+// --- ÉTAPE 2 : VÉRIFICATION DU CODE ---
+const confirmA2F = () => {
+    if (userEnteredCode.value === generatedCode.value) {
+        finalizeLogin(pendingUser.value);
+    } else {
+        isError.value = true;
+        feedback.value = "CODE INCORRECT.";
+    }
+};
+
+const finalizeLogin = (userData) => {
+    store.login(userData);
+    isError.value = false;
+    feedback.value = "CONNEXION RÉUSSIE !";
+
+    setTimeout(() => {
+        const userRole = userData.role ? userData.role.trim().toLowerCase() : 'client';
+        router.push(userRole === 'commercial' ? '/espace-commercial' : '/');
+    }, 1500);
 };
 
 const handleGoogleSuccess = async (response) => {

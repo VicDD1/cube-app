@@ -13,7 +13,8 @@ const form = reactive({
   prenomClient: '',
   emailClient: '',
   dateNaissance: '',
-  tel: ''
+  tel: '',
+  doubleAuth: false 
 })
 
 onMounted(() => {
@@ -23,6 +24,8 @@ onMounted(() => {
     form.emailClient = appStore.user.emailClient || ''
     form.dateNaissance = appStore.user.dateNaissance ? appStore.user.dateNaissance.split('T')[0] : ''
     form.tel = appStore.user.tel || ''
+    // Récupération de l'état A2F depuis le store
+    form.doubleAuth = !!appStore.user.doubleAuth 
   }
 })
 
@@ -32,14 +35,25 @@ const handleUpdate = async () => {
   isError.value = false
 
   try {
+    // Construction de l'objet propre pour l'API
     const updatedUser = {
-      ...appStore.user,
+      ...appStore.user, // On récupère l'objet complet de l'API (id, role, etc.)
+      
+      // On écrase manuellement avec les données du formulaire reactive
       nomClient: form.nomClient.trim().toUpperCase(),
       prenomClient: form.prenomClient.trim(),
       emailClient: form.emailClient.trim().toLowerCase(),
       dateNaissance: form.dateNaissance,
-      tel: String(form.tel || "").replace(/\s/g, "")
+      tel: String(form.tel || "").replace(/\s/g, ""),
+      
+      // CRUCIAL : On assigne la valeur de la checkbox au bon nom de champ
+      doubleAuth: form.doubleAuth 
     }
+
+    // Suppression de "twoFactorEnabled" s'il s'est glissé dans l'objet par erreur
+    delete updatedUser.twoFactorEnabled;
+
+    console.log("Données envoyées corrigées :", JSON.stringify(updatedUser));
 
     const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PutClient/${appStore.user.idClient}`, {
       method: 'PUT',
@@ -49,12 +63,13 @@ const handleUpdate = async () => {
 
     if (!res.ok) throw new Error("Erreur lors de la mise à jour.")
 
+    // On met à jour le store avec l'objet qu'on vient d'envoyer
     appStore.user = updatedUser
     localStorage.setItem('user', JSON.stringify(updatedUser))
 
     isError.value = false
     feedback.value = "Vos informations ont été mises à jour avec succès !"
-
+    
     setTimeout(() => { feedback.value = '' }, 4000)
 
   } catch (err) {
@@ -103,12 +118,29 @@ const handleUpdate = async () => {
         <input type="email" v-model="form.emailClient" required>
       </div>
 
+      <div class="a2f-section">
+        <div class="checkbox-group">
+          <input 
+            type="checkbox" 
+            id="a2f-toggle" 
+            v-model="form.doubleAuth"
+          >
+          <label for="a2f-toggle">
+            Activer l'authentification à deux facteurs (A2F)
+          </label>
+        </div>
+        <p class="help-text">
+          Ajoutez une couche de sécurité supplémentaire à votre compte.
+        </p>
+      </div>
+
       <transition name="fade">
         <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">
           {{ feedback }}
         </div>
       </transition>
 
+      
       <div class="actions">
         <button type="submit" :disabled="loading" class="btn-save">
           {{ loading ? 'ENREGISTREMENT...' : 'ENREGISTRER LES MODIFICATIONS' }}
@@ -230,6 +262,33 @@ input:focus {
   font-size: 0.85rem;
   font-weight: 800;
   text-align: center;
+}
+
+.a2f-section {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f9f9f9; /* Ou une couleur légère qui s'accorde à votre thème */
+  border-radius: 8px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-group label {
+  font-weight: bold;
+  margin: 0;
+  cursor: pointer;
+}
+
+.help-text {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 5px;
+  margin-left: 28px; /* Aligné avec le texte de la checkbox */
 }
 
 .error { background-color: #fee2e2; color: #dc2626; border-left: 4px solid #dc2626; }
