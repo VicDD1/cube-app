@@ -8,6 +8,12 @@ const loading = ref(false)
 const feedback = ref('')
 const isError = ref(false)
 
+const newPassword = ref('')
+const confirmPassword = ref('')
+const showPassword = ref(false)
+
+const googleId = ref(null)
+
 // Objet pour stocker les erreurs de validation
 const errors = reactive({})
 
@@ -28,6 +34,7 @@ onMounted(() => {
     form.dateNaissance = appStore.user.dateNaissance ? appStore.user.dateNaissance.split('T')[0] : ''
     form.tel = appStore.user.tel || ''
     form.doubleAuth = !!appStore.user.doubleAuth 
+    googleId.value = appStore.user.googleId || null
   }
 })
 
@@ -79,14 +86,28 @@ const validateProfile = () => {
     isValid = false
   }
 
+  if (newPassword.value) {
+    // Si l'utilisateur a commencé à taper un mot de passe
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    
+    if (!passwordRegex.test(newPassword.value)) {
+      errors.newPassword = "8 car. min, 1 Maj, 1 Min, 1 Chiffre, 1 Spécial."
+      isValid = false
+    }
+
+    if (newPassword.value !== confirmPassword.value) {
+      errors.confirmPassword = "Les mots de passe ne correspondent pas."
+      isValid = false
+    }
+  }
+
   return isValid
 }
 
 const handleUpdate = async () => {
-  // 1. On lance la validation avant de faire quoi que ce soit
   if (!validateProfile()) {
     isError.value = true
-    feedback.value = "VEUILLEZ CORRIGER LES ERREURS DANS LE FORMULAIRE."
+    feedback.value = "VEUILLEZ CORRIGER LES ERREURS."
     window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
@@ -103,10 +124,13 @@ const handleUpdate = async () => {
       emailClient: form.emailClient.trim().toLowerCase(),
       dateNaissance: form.dateNaissance,
       tel: String(form.tel || "").replace(/\s/g, ""),
-      doubleAuth: form.doubleAuth 
+      doubleAuth: form.doubleAuth,
+      googleId: googleId.value
     }
 
-    delete updatedUser.twoFactorEnabled
+    if (newPassword.value) {
+      updatedUser.mdp = newPassword.value
+    }
 
     const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/PutClient/${appStore.user.idClient}`, {
       method: 'PUT',
@@ -116,14 +140,15 @@ const handleUpdate = async () => {
 
     if (!res.ok) throw new Error("Erreur lors de la mise à jour.")
 
-    appStore.user = updatedUser
-    localStorage.setItem('user', JSON.stringify(updatedUser))
+    appStore.user = { ...updatedUser }
+    delete appStore.user.mdp 
+    localStorage.setItem('user', JSON.stringify(appStore.user))
+
+    newPassword.value = ''
+    confirmPassword.value = ''
 
     isError.value = false
     feedback.value = "Vos informations ont été mises à jour avec succès !"
-    
-    setTimeout(() => { feedback.value = '' }, 4000)
-
   } catch (err) {
     isError.value = true
     feedback.value = err.message || "Impossible de mettre à jour le profil."
@@ -173,6 +198,35 @@ const handleUpdate = async () => {
         <label>ADRESSE E-MAIL</label>
         <input type="email" v-model="form.emailClient" :class="{ 'input-error': errors.emailClient }">
         <span class="field-error" v-if="errors.emailClient">{{ errors.emailClient }}</span>
+      </div>
+
+      <div class="password-change-section" v-if="!googleId">
+        <p class="section-title">CHANGER LE MOT DE PASSE (Optionnel)</p>
+        <div class="row">
+          <div class="field-group">
+            <label>NOUVEAU MOT DE PASSE</label>
+            <div class="input-wrapper">
+              <input 
+                :type="showPassword ? 'text' : 'password'" 
+                v-model="newPassword" 
+                :class="{ 'input-error': errors.newPassword }"
+                placeholder="Optionnel"
+              >
+
+            </div>
+            <span class="field-error" v-if="errors.newPassword">{{ errors.newPassword }}</span>
+          </div>
+
+          <div class="field-group">
+            <label>CONFIRMER LE MOT DE PASSE</label>
+            <input 
+              :type="showPassword ? 'text' : 'password'" 
+              v-model="confirmPassword" 
+              :class="{ 'input-error': errors.confirmPassword }"
+            >
+            <span class="field-error" v-if="errors.confirmPassword">{{ errors.confirmPassword }}</span>
+          </div>
+        </div>
       </div>
 
       <div class="a2f-section">
@@ -372,6 +426,36 @@ input:focus {
 .input-error:focus {
   border-color: #dc2626 !important;
   box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+}
+
+.password-change-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed #ddd;
+}
+
+.section-title {
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #888;
+  margin-bottom: 15px;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.toggle-btn {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #00a8e8;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: pointer;
 }
 
 @media (max-width: 600px) {

@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import GoogleSignInPlugin from 'vue3-google-signin' // Ajout de l'import
+import GoogleSignInPlugin from 'vue3-google-signin' 
 import App from './App.vue'
 import router from './router'
 
