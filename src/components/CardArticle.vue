@@ -1,180 +1,284 @@
 <script setup>
+import { ref, computed, onMounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useAppStore } from '../stores/useStore'
 
 const props = defineProps({
-  // On garde 'article' ici
   article: { type: Object, required: true }
 })
 
-const getImageUrl = (reference) => {
-  if (!reference) return ''
-  const ref = reference.trim()
-  const folder = ref.length === 6 ? 'VELOS' : 'ACCESSOIRES'
-  return new URL(`../assets/images/${folder}/${ref}/image_1.webp`, import.meta.url).href
+const appStore = useAppStore()
+const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
+
+const inventaireRaw = ref([])
+const loadingStock = ref(true)
+
+// --- RÉCUPÉRATION DE LA "VÉRITÉ" DU STOCK ---
+const fetchRealStock = async () => {
+  loadingStock.value = true
+  try {
+    const res = await fetch(`${API_BASE}/Articles/GetStock/${props.article.reference.trim()}`)
+    const data = await res.json()
+    // On extrait le tableau d'inventaire (Web + Magasins)
+    inventaireRaw.value = data.articleInventaires?.$values || data.articleInventaires || []
+  } catch (err) {
+    console.error("Erreur stock card:", err)
+  } finally {
+    loadingStock.value = false
+  }
+}
+
+// --- LOGIQUE DE CALCUL ---
+const hasOnlineStock = computed(() => {
+  return inventaireRaw.value.some(inv => (inv.quantiteStockEnLigne || 0) > 0)
+})
+
+const hasMagasinStock = computed(() => {
+  if (appStore.magasinChoisi) {
+    return inventaireRaw.value.some(inv => {
+      const magasins = inv.inventaireMagasins?.$values || inv.inventaireMagasins || []
+      return magasins.some(m => m.idMagasin === appStore.magasinChoisi.idMagasin && m.quantiteStockMagasin > 0)
+    })
+  }
+  return inventaireRaw.value.some(inv => {
+    const magasins = inv.inventaireMagasins?.$values || inv.inventaireMagasins || []
+    return magasins.some(m => m.quantiteStockMagasin > 0)
+  })
+})
+
+onMounted(fetchRealStock)
+// Si la référence change (ex: pagination), on recharge
+watch(() => props.article.reference, fetchRealStock)
+
+const getImageUrl = (ref) => {
+  const cleanRef = ref.trim()
+  const folder = cleanRef.length === 6 ? 'VELOS' : 'ACCESSOIRES'
+  return new URL(`../assets/images/${folder}/${cleanRef}/image_1.webp`, import.meta.url).href
 }
 </script>
 
+
 <template>
   <RouterLink v-if="article" class="card-article" :to="{ name: 'visualize', params: { id: article.reference?.trim() }}" >
+    
     <div class="image-container">
-      <img 
-        :src="article.image ? article.image : getImageUrl(article.reference)" 
-        :alt="article.nomArticle"
-        @error="(e) => e.target.src = 'https://via.placeholder.com/400x300?text=Image+Indisponible'"
-      >
+      <img :src="getImageUrl(article.reference)" :alt="article.nomArticle" loading="lazy">
     </div>
     
     <div class="card-content">
       <h3 class="nom">{{ article.nomArticle }}</h3>
-      
-      <div class="availability">
-        <div class="status-item"><span class="dot green"></span> Disponible en ligne</div>
-        <div class="status-item"><span class="dot green"></span> Disponible en magasins</div>
-      </div>
 
+      <div class="status-container">
+        <div v-if="loadingStock" class="status-skeleton"></div>
+        <template v-else>
+          <div class="status-pill" :class="hasOnlineStock ? 'ok' : 'out'">
+            <span class="dot"></span> En ligne
+          </div>
+          <div class="status-pill" :class="hasMagasinStock ? 'ok' : 'out'">
+            <span class="dot"></span> Magasin
+          </div>
+        </template>
+      </div>
+      
       <div class="card-footer">
-        <div class="price-container">
-          <span class="prix">{{ article.prix?.toLocaleString() }} €</span>
+        <span class="prix">{{ article.prix?.toLocaleString() }} €</span>
+        <div class="btn-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </div>
-        <div class="btn-product">VOIR LE PRODUIT</div>
       </div>
     </div>
   </RouterLink>
-</template>
-
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+</template><style scoped>
+/* Conteneur principal */
 .card-article {
-  font-family: 'Inter', sans-serif;
-  background: #fff;
-  border-radius: 4px; /* Un très léger arrondi pour la modernité */
-  
-  /* AJOUT DU CADRE ICI */
-  border: 1px solid #e0e0e0; 
+  background: #ffffff;
   text-decoration: none;
-  color: inherit;
-  overflow: hidden;
+  color: #0f172a;
   display: flex;
   flex-direction: column;
-  transition: all 0.3s ease;
-  padding: 20px;
-  position: relative; /* Important pour le positionnement du badge */
+  padding: 16px; /* Plus d'espace interne */
+  height: 100%;
+  border-radius: 24px; /* Arrondi plus moderne */
+  border: 1px solid #f1f5f9; /* Bordure légère pour la définition */
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-/* EFFET AU SURVOL : Le cadre s'assombrit ou on ajoute une ombre */
+/* Effet au survol de la carte */
 .card-article:hover {
-  border-color: #000; /* Le cadre devient noir au survol */
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1); /* Petite ombre portée pour décoller la carte */
-  transform: translateY(-5px); /* La carte monte légèrement */
+  transform: translateY(-8px);
+  border-color: transparent;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
 }
-
-/* --- Image --- */
+/* --- IMAGE (Version Statique) --- */
 .image-container {
   width: 100%;
-  height: 280px;
+  height: 220px;
+  background: #f8fafc; /* Fond gris très clair uni pour plus de sobriété */
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 20px;
+  overflow: hidden;
 }
 
 .image-container img {
-  max-width: 100%;
-  max-height: 100%;
+  max-width: 85%;
+  max-height: 85%;
   object-fit: contain;
-  transition: transform 0.5s ease;
+  /* On a supprimé le transition et le transform ici */
 }
 
-.card-article:hover img {
-  transform: scale(1.05);
+/* On supprime l'effet de zoom au survol */
+.card-article:hover .image-container img {
+  transform: none; 
 }
 
-/* --- Content --- */
+/* --- INTERACTION DOUCE --- */
+.card-article:hover {
+  transform: translateY(-4px); /* Soulèvement très léger */
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06); /* Ombre plus discrète */
+  border-color: #e2e8f0;
+}
+
+.card-article:hover .nom {
+  color: #00A3E0; /* Seul le titre change de couleur pour indiquer le clic */
+}
+
+.card-article:hover .btn-arrow {
+  background: #00A3E0;
+  color: #ffffff;
+  /* On a supprimé le translateX pour que la flèche reste fixe */
+}
+/* Contenu textuel */
 .card-content {
-  text-align: center; /* Centré comme sur ton image */
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .nom {
-  font-size: 1.4rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  font-style: italic;
-  margin-bottom: 20px;
-  color: #000;
-  letter-spacing: -0.5px;
+  font-family: 'Inter', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  min-height: 2.6em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 0.3s ease;
 }
 
-/* --- Availability (Les points verts) --- */
-.availability {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 30px;
-  padding-left: 20%; /* Pour décaler un peu vers le centre */
+.card-article:hover .nom {
+  color: #00A3E0;
 }
 
-.status-item {
+/* --- STATUS PILLS (Badges de stock) --- */
+.status-container {
   display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.status-pill {
+  display: inline-flex;
   align-items: center;
-  font-size: 0.9rem;
-  color: #333;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #f1f5f9;
+  color: #64748b;
+  transition: all 0.3s ease;
+}
+
+/* État En Stock */
+.status-pill.ok {
+  background: #ecfdf5; /* Vert menthe très clair */
+  color: #059669;
+}
+
+.status-pill.ok .dot {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+/* État Hors Stock */
+.status-pill.out {
+  background: #fff1f2; /* Rouge très clair */
+  color: #e11d48;
+}
+
+.status-pill.out .dot {
+  background: #fb7185;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  margin-right: 12px;
 }
 
-.dot.green {
-  background-color: #7ED321;
-}
-
-/* --- Footer & Prix --- */
+/* --- FOOTER (Prix & Bouton) --- */
 .card-footer {
+  margin-top: auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: auto;
+  padding-top: 16px;
 }
 
 .prix {
-  font-size: 1.8rem;
+  font-size: 1.4rem;
   font-weight: 900;
-  color: #000;
+  color: #0f172a;
+  letter-spacing: -0.03em;
 }
 
-/* --- Bouton style parallélogramme --- */
-.btn-product {
-  background: #000;
-  color: #fff;
-  border: none;
-  padding: 12px 25px;
-  font-weight: 900;
-  font-style: italic;
-  cursor: pointer;
-  clip-path: polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%); /* Crée l'effet penché */
-  transition: background 0.3s ease;
+/* Bouton Flèche */
+.btn-arrow {
+  width: 40px;
+  height: 40px;
+  background: #f1f5f9;
+  color: #0f172a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.btn-product:hover {
-  background: #333;
+.btn-arrow svg {
+  width: 18px;
+  height: 18px;
 }
 
-/* --- Badges --- */
-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  padding: 5px 15px;
-  font-weight: 800;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  background: #f0f0f0;
-  z-index: 10;
+.card-article:hover .btn-arrow {
+  background: #00A3E0;
+  color: #ffffff;
+  transform: translateX(4px); /* Petit décalage vers la droite */
 }
 
+/* Skeleton loader */
+.status-skeleton {
+  width: 80px;
+  height: 20px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+}
 
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 </style>
