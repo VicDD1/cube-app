@@ -3,6 +3,7 @@ import { onMounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StoreLocator from '../components/StoreLocator.vue'
 import { useAppStore } from '../stores/useStore'
+import CubeCalculator from '@/components/CubeCalculator.vue';
 
 const route = useRoute()
 const router = useRouter()
@@ -569,6 +570,17 @@ onMounted(fetchData)
       </div>
     </div>
 
+
+    <div v-if="isVelo" class="calculator-integration-wrapper">
+      <div class="calculator-header">
+        <h2 class="section-label">CALCULATEUR DE TAILLE</h2>
+        <p>Trouvez la géométrie parfaite pour votre morphologie</p>
+      </div>
+      <div class="calculator-box">
+        <CubeCalculator />
+      </div>
+    </div>
+
     <div class="similar-section" v-if="articlesSimilaires.length > 0">
       <h2 class="section-label">ARTICLES SIMILAIRES</h2>
       <div class="similar-grid">
@@ -791,4 +803,40 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .modal-actions { flex-direction: column; } }
+
+.calculator-integration-wrapper {
+  margin: 60px 0;
+  padding: 50px 20px;
+  background-color: #f8f9fa; /* Fond gris très clair pour faire ressortir la zone */
+  border-top: 1px solid #eaeaea;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.calculator-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.calculator-header .section-label {
+  font-size: 1.8rem;
+  margin-bottom: 5px;
+  color: #000;
+}
+
+.calculator-header p {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.calculator-box {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04); /* Ombre douce et moderne */
+  border: 1px solid #f0f0f0;
+  overflow: hidden; /* Garde les bords arrondis propres */
+  padding: 10px;
+}
 </style>
