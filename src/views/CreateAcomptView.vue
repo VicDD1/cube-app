@@ -10,22 +10,26 @@
         <div class="row">
           <div class="field-group">
             <label>NOM</label>
-            <input type="text" v-model="form.nom" placeholder="DUPONT" required>
+            <input type="text" v-model="form.nom" :class="{ 'input-error': errors.nom }" placeholder="DUPONT">
+            <span class="field-error" v-if="errors.nom">{{ errors.nom }}</span>
           </div>
           <div class="field-group">
             <label>PRÉNOM</label>
-            <input type="text" v-model="form.prenomClient" placeholder="JEAN" required>
+            <input type="text" v-model="form.prenomClient" :class="{ 'input-error': errors.prenomClient }" placeholder="JEAN">
+            <span class="field-error" v-if="errors.prenomClient">{{ errors.prenomClient }}</span>
           </div>
         </div>
 
         <div class="field-group">
           <label>DATE DE NAISSANCE</label>
-          <input type="date" v-model="form.dateNaissance" required>
+          <input type="date" v-model="form.dateNaissance" :class="{ 'input-error': errors.dateNaissance }">
+          <span class="field-error" v-if="errors.dateNaissance">{{ errors.dateNaissance }}</span>
         </div>
 
         <div class="field-group">
           <label>ADRESSE EMAIL</label>
-          <input type="email" v-model="form.email" placeholder="NOM@EXEMPLE.COM" required>
+          <input type="email" v-model="form.email" :class="{ 'input-error': errors.email }" placeholder="NOM@EXEMPLE.COM">
+          <span class="field-error" v-if="errors.email">{{ errors.email }}</span>
         </div>
         
         <div class="field-group">
@@ -34,13 +38,14 @@
             <input 
               :type="showPassword ? 'text' : 'password'" 
               v-model="form.password" 
+              :class="{ 'input-error': errors.password }"
               placeholder="••••••••" 
-              required
             >
             <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
               {{ showPassword ? 'CACHER' : 'VOIR' }}
             </button>
           </div>
+          <span class="field-error" v-if="errors.password">{{ errors.password }}</span>
         </div>
         
         <div class="field-group">
@@ -49,15 +54,17 @@
             <input 
               :type="showPassword ? 'text' : 'password'" 
               v-model="confirmPassword" 
+              :class="{ 'input-error': errors.confirmPassword }"
               placeholder="••••••••" 
-              required
             >
           </div>
+          <span class="field-error" v-if="errors.confirmPassword">{{ errors.confirmPassword }}</span>
         </div>
 
         <div class="field-group">
           <label>TÉLÉPHONE</label>
-          <input type="tel" v-model="form.telephone" placeholder="06 00 00 00 00">
+          <input type="tel" v-model="form.telephone" :class="{ 'input-error': errors.telephone }" placeholder="06 00 00 00 00">
+          <span class="field-error" v-if="errors.telephone">{{ errors.telephone }}</span>
         </div>
 
         <div class="field-group" style="position: relative;">
@@ -65,11 +72,12 @@
           <input 
             type="text" 
             v-model="form.rueFacturation" 
+            :class="{ 'input-error': errors.rueFacturation }"
             @input="onAddressInput(form.rueFacturation)"
             placeholder="Tapez votre adresse..." 
             autocomplete="off"
-            required
           >
+          <span class="field-error" v-if="errors.rueFacturation">{{ errors.rueFacturation }}</span>
           <ul v-if="suggestions.length > 0" class="address-suggestions">
             <li v-for="s in suggestions" :key="s.properties.id" @click="selectAdresse(s, 'facturation')">
               {{ s.properties.label }}
@@ -80,13 +88,14 @@
         <div class="row">
           <div class="field-group">
             <label>CODE POSTAL</label>
-            <input type="text" v-model="form.cpFacturation" placeholder="20000" readonly required>
+            <input type="text" v-model="form.cpFacturation" :class="{ 'input-error': errors.cpFacturation }" placeholder="20000" readonly>
           </div>
           <div class="field-group">
             <label>VILLE</label>
-            <input type="text" v-model="form.villeFacturation" placeholder="Ajaccio" readonly required>
+            <input type="text" v-model="form.villeFacturation" :class="{ 'input-error': errors.cpFacturation }" placeholder="Ajaccio" readonly>
           </div>
         </div>
+        <span class="field-error" v-if="errors.cpFacturation">{{ errors.cpFacturation }}</span>
 
         <div class="field-group checkbox-container">
           <input type="checkbox" v-model="sameAddress" id="same">
@@ -99,11 +108,12 @@
             <input 
               type="text" 
               v-model="form.rueLivraison" 
+              :class="{ 'input-error': errors.rueLivraison }"
               @input="onAddressInput(form.rueLivraison)"
               placeholder="Rue de livraison" 
               autocomplete="off"
-              :required="!sameAddress"
             >
+            <span class="field-error" v-if="errors.rueLivraison">{{ errors.rueLivraison }}</span>
             <ul v-if="suggestions.length > 0" class="address-suggestions">
               <li v-for="s in suggestions" :key="s.properties.id" @click="selectAdresse(s, 'livraison')">
                 {{ s.properties.label }}
@@ -113,13 +123,14 @@
           <div class="row">
             <div class="field-group">
               <label>CODE POSTAL (LIVRAISON)</label>
-              <input type="text" v-model="form.cpLivraison" placeholder="74000" readonly :required="!sameAddress">
+              <input type="text" v-model="form.cpLivraison" :class="{ 'input-error': errors.cpLivraison }" placeholder="74000" readonly>
             </div>
             <div class="field-group">
               <label>VILLE (LIVRAISON)</label>
-              <input type="text" v-model="form.villeLivraison" placeholder="ANNECY" readonly :required="!sameAddress">
+              <input type="text" v-model="form.villeLivraison" :class="{ 'input-error': errors.cpLivraison }" placeholder="ANNECY" readonly>
             </div>
           </div>
+          <span class="field-error" v-if="errors.cpLivraison">{{ errors.cpLivraison }}</span>
         </div>
 
         <transition name="fade">
@@ -185,11 +196,14 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import bcrypt from 'bcryptjs';
 import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 import emailjs from '@emailjs/browser';
+import { useValidation } from '@/composables/useValidation'; // Ajuste le chemin si besoin
 
 const router = useRouter();
+
+// --- VALIDATION ---
+const { errors, validateRegistration } = useValidation();
 
 // --- ÉTATS DE L'INTERFACE ---
 const step = ref(1); // 1: Formulaire, 2: Saisie du code de validation
@@ -199,7 +213,7 @@ const isError = ref(false);
 const showPassword = ref(false);
 const sameAddress = ref(true);
 const suggestions = ref([]);
-const googleIdValue = ref(null); // Pour stocker le "sub" de Google
+const googleIdValue = ref(null); 
 
 // --- LOGIQUE DE SÉCURITÉ ---
 const generatedCode = ref('');
@@ -221,10 +235,11 @@ const form = reactive({
   villeLivraison: '',
   pays: 'France'
 });
+
 const handleGoogleSuccess = async (response) => {
   const { credential } = response;
   const userData = decodeCredential(credential);
-  googleIdValue.value = userData.sub;  // Décode Nom, Prénom, Email
+  googleIdValue.value = userData.sub; 
 
   loading.value = true;
   isError.value = false;
@@ -233,21 +248,17 @@ const handleGoogleSuccess = async (response) => {
   try {
     const cleanEmail = userData.email.trim().toLowerCase();
     
-    // Vérifier si l'utilisateur existe déjà dans ta base Azure
     const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
     
     if (checkRes.ok) {
-      // Cas A : L'utilisateur existe, on simule une connexion
       feedback.value = "CONNEXION RÉUSSIE !";
       setTimeout(() => router.push('/dashboard'), 1500);
     } else {
-      // Cas B : Nouvel utilisateur, on pré-remplit le formulaire
       form.email = cleanEmail;
       form.nom = userData.family_name ? userData.family_name.toUpperCase() : '';
       form.prenomClient = userData.given_name || '';
       
-      // On génère un mot de passe aléatoire caché puisque c'est du OAuth
-      form.password = Math.random().toString(36).slice(-10);
+      form.password = Math.random().toString(36).slice(-10) + "A1!"; // Génération d'un MDP fort temporaire
       confirmPassword.value = form.password;
 
       feedback.value = "COMPTE GOOGLE RECONNU. VEUILLEZ COMPLÉTER VOTRE ADRESSE.";
@@ -295,10 +306,12 @@ const selectAdresse = (feature, type) => {
 
 // --- ÉTAPE 1 : VÉRIFICATION EMAIL ET ENVOI DU CODE ---
 const handleRegistration = async () => {
-  // Validation des mots de passe
-  if (form.password !== confirmPassword.value) {
+  // On valide le formulaire
+  const isValid = validateRegistration(form, confirmPassword.value, sameAddress.value);
+  
+  if (!isValid) {
     isError.value = true;
-    feedback.value = "LES MOTS DE PASSE NE CORRESPONDENT PAS.";
+    feedback.value = "VEUILLEZ CORRIGER LES ERREURS DANS LE FORMULAIRE.";
     return;
   }
 
@@ -318,27 +331,19 @@ const handleRegistration = async () => {
     // 2. Générer le code à 6 chiffres
     generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // 3. Préparer les paramètres pour EmailJS
-    // C'est ici qu'on ajoute to_name pour ton template !
-  const templateParams = {
-    to_name: form.prenomClient.trim(), // Correspond à {{to_name}}
-    to_email: form.email.toLowerCase(), // Correspond à {{to_email}}
-    code: String(generatedCode.value)   // Correspond à {{code}}
-  };
-
-    // 4. Envoyer le mail (Remplace par tes IDs réels)
+    // 3. Envoyer le mail 
     await emailjs.send(
-  'service_ues7qi8', // Ton Service ID (Email Services)
-  'template_by4mad9', // Ton Template ID (Email Templates)
-  {
-    to_name: form.prenomClient.trim(),
-    to_email: form.email.trim().toLowerCase(),
-    code: String(generatedCode.value)
-  },
-  '9lPdrD2WOpVRdpwJO' // Ta Public Key (Account > API Keys)
-);
+      'service_ues7qi8', 
+      'template_by4mad9', 
+      {
+        to_name: form.prenomClient.trim(),
+        to_email: form.email.trim().toLowerCase(),
+        code: String(generatedCode.value)
+      },
+      '9lPdrD2WOpVRdpwJO' 
+    );
 
-    // 5. Passer à l'étape suivante
+    // 4. Passer à l'étape suivante
     step.value = 2;
     feedback.value = "UN CODE DE SÉCURITÉ A ÉTÉ ENVOYÉ.";
 
@@ -459,7 +464,7 @@ const confirmAndCreateAccount = async () => {
 
 .input-wrapper input {
   width: 100%;
-  padding-right: 60px; /* Espace pour le bouton à droite */
+  padding-right: 60px;
 }
 
 .toggle-btn {
@@ -467,12 +472,16 @@ const confirmAndCreateAccount = async () => {
   right: 12px;
   background: none;
   border: none;
-  color: #00a8e8; /* Ton bleu Cube */
+  color: #00a8e8;
   font-family: 'CubeFont', sans-serif;
   font-size: 10px;
   font-weight: 800;
   cursor: pointer;
   transition: color 0.2s;
+}
+
+.toggle-btn:hover {
+  color: #000;
 }
 
 .google-divider {
@@ -500,9 +509,6 @@ const confirmAndCreateAccount = async () => {
   margin-top: 10px;
 }
 
-.toggle-btn:hover {
-  color: #000;
-}
 .connexion-page {
   padding-top: 140px; 
   padding-bottom: 80px;
@@ -523,7 +529,6 @@ const confirmAndCreateAccount = async () => {
   border-top: 5px solid #000;
 }
 
-/* NOUVEAU : Style pour les suggestions d'adresse */
 .address-suggestions {
   position: absolute;
   z-index: 1000;
@@ -627,6 +632,7 @@ input:focus {
   text-align: center;
   font-weight: 800;
 }
+
 .back-btn {
   width: 100%;
   padding: 14px;
@@ -652,10 +658,9 @@ input:focus {
   cursor: not-allowed;
 }
 
-/* Optionnel : Si tu veux les mettre côte à côte sur grand écran */
 .button-group {
   display: flex;
-  flex-direction: column; /* Par défaut l'un sur l'autre */
+  flex-direction: column;
   gap: 10px;
   margin-top: 20px;
 }
@@ -665,6 +670,36 @@ input:focus {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Styles de validation */
+.field-error {
+  display: block;
+  color: #dc2626;
+  font-size: 10px;
+  margin-top: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.input-error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+}
+
+.input-error:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-container input {
+  width: auto;
+}
 
 @media (max-width: 480px) {
   .row { flex-direction: column; gap: 0; }
