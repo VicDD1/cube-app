@@ -98,6 +98,7 @@ onMounted(() => {
 
 <style scoped>
 .cube-footer {
+  margin-top: 60px;
   background-color: #111;
   color: #999;
   padding: 60px 40px;
