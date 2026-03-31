@@ -121,6 +121,7 @@ const router = createRouter({
                 { path: '', name: 'dashboard', component: () => import('../views/ProfileDashBoard.vue') },
                 { path: 'infos', name: 'profile-infos', component: () => import('../views/InfosProfil.vue') },
                 { path: 'commandes', name: 'profile-orders', component: () => import('../views/CommandesProfil.vue') },
+                { path: 'commande/:id', name: 'order-info', component: () => import('../views/CommandeDetail.vue') },
                 { path: 'adresses', name: 'profile-addresses', component: () => import('../views/AdressesProfil.vue') },
             ]
         },
