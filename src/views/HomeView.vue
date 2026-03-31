@@ -89,7 +89,7 @@ const prev = () => {
       <h2 class="section-title">EXPLOREZ NOS GAMMES</h2>
       <div class="category-grid">
         
-        <a href="/velo" class="category-card">
+        <a href="/velos" class="category-card">
           <img 
               src="https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?q=60&w=800" 
               alt="Vélos musculaires"
@@ -199,8 +199,6 @@ const prev = () => {
 .hero-slider {
   position: relative; width: 100%; height: 100vh; overflow: hidden;
   background-color: #0f172a; /* Bleu marine foncé */
-  border-bottom-left-radius: 40px; /* Moins carré */
-  border-bottom-right-radius: 40px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 

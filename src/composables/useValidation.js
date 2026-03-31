@@ -46,7 +46,7 @@ export function useValidation() {
 
     // --- MOT DE PASSE ---
     // Au moins 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_])[A-Za-z\d\W_]{8,}$/;
     if (!form.password || !passwordRegex.test(form.password)) {
       errors.password = "8 caractères min, incluant majuscule, minuscule, chiffre et caractère spécial.";
       isValid = false;
@@ -59,11 +59,11 @@ export function useValidation() {
 
     // --- TÉLÉPHONE (Format Français) ---
     const phoneRegex = /^(0|\+33|0033)[1-9]([-. ]?[0-9]{2}){4}$/;
-    if (form.telephone && !phoneRegex.test(form.telephone)) {
-      errors.telephone = "Format de téléphone invalide (ex: 06 12 34 56 78).";
+    if (form.telephone && form.telephone.trim() !== '' && !phoneRegex.test(form.telephone.trim())) {
+      errors.telephone = "Format invalide (ex: 06 12 34 56 78).";
       isValid = false;
     }
-
+    
     // --- ADRESSE FACTURATION ---
     if (!form.rueFacturation || form.rueFacturation.trim().length < 5) {
       errors.rueFacturation = "L'adresse de facturation est incomplète.";

@@ -306,12 +306,15 @@ const selectAdresse = (feature, type) => {
 
 // --- ÉTAPE 1 : VÉRIFICATION EMAIL ET ENVOI DU CODE ---
 const handleRegistration = async () => {
-  // On valide le formulaire
+
+
   const isValid = validateRegistration(form, confirmPassword.value, sameAddress.value);
-  
+
+
   if (!isValid) {
     isError.value = true;
     feedback.value = "VEUILLEZ CORRIGER LES ERREURS DANS LE FORMULAIRE.";
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
     return;
   }
 
@@ -322,16 +325,14 @@ const handleRegistration = async () => {
   try {
     const cleanEmail = form.email.trim().toLowerCase();
     
-    // 1. Vérifier si l'email existe déjà
     const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
+    
     if (checkRes.ok) {
       throw new Error("CETTE ADRESSE EMAIL EST DÉJÀ UTILISÉE.");
     }
 
-    // 2. Générer le code à 6 chiffres
     generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // 3. Envoyer le mail 
     await emailjs.send(
       'service_ues7qi8', 
       'template_by4mad9', 
@@ -342,12 +343,13 @@ const handleRegistration = async () => {
       },
       '9lPdrD2WOpVRdpwJO' 
     );
+    console.log("8. Email envoyé avec succès !");
 
-    // 4. Passer à l'étape suivante
     step.value = 2;
     feedback.value = "UN CODE DE SÉCURITÉ A ÉTÉ ENVOYÉ.";
 
   } catch (err) {
+    console.error("Erreur attrapée dans le try/catch :", err);
     isError.value = true;
     feedback.value = err.message || "ERREUR LORS DE L'ENVOI DU MAIL.";
   } finally {
