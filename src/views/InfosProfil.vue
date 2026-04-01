@@ -111,7 +111,7 @@ const handleUpdate = async () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
-  
+
   loading.value = true
   feedback.value = 'Mise à jour en cours...'
   isError.value = false

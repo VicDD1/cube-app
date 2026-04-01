@@ -3,6 +3,7 @@ import { onMounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import StoreLocator from '../components/StoreLocator.vue'
 import { useAppStore } from '../stores/useStore'
+import CubeCalculator from '@/components/CubeCalculator.vue';
 
 const route = useRoute()
 const router = useRouter()
@@ -19,7 +20,12 @@ const inventaire = ref([])
 const variantesCouleurs = ref([])
 const variantesBatteries = ref([])
 const articlesSimilaires = ref([])
+const accessoiresCompatibles = ref([]) // NOUVEAU: Accessoires compatibles
 const batterieInfo = ref(null)
+
+// Références DOM pour les carrousels
+const similarContainer = ref(null)
+const compatContainer = ref(null)
 
 const loading = ref(true)
 const currentImgIndex = ref(1)
@@ -93,7 +99,6 @@ const addToCart = async () => {
     return;
   }
 
-  // --- Gestion Visiteur (LocalStorage) ---
   if (!idClient.value) {
     let panierLocal = JSON.parse(localStorage.getItem('panierVisiteur')) || { lignePaniers: [] };
     const indexExistant = panierLocal.lignePaniers.findIndex(
@@ -118,7 +123,6 @@ const addToCart = async () => {
     return;
   }
 
-  // --- Gestion Utilisateur Connecté (API) ---
   try {
     let vraiIdPanier = null;
     let lignesExistantes = [];
@@ -129,7 +133,6 @@ const addToCart = async () => {
       const cartData = await cartRes.json();
       vraiIdPanier = cartData.idPanier;
       
-      // On scanne le contenu du panier pour voir ce qui s'y trouve déjà
       const detailsRes = await fetch(`${API_BASE}/Panier/GetDetails/${vraiIdPanier}`);
       if (detailsRes.ok) {
         const detailsData = await detailsRes.json();
@@ -153,17 +156,15 @@ const addToCart = async () => {
     const targetRef = reference.value.trim();
     const targetTaille = selectedTaille.value.idTailleNavigation.taille1.trim();
 
-    // On regarde si la même ref + taille existe déjà
     const articleExistant = lignesExistantes.find(
       i => i.reference.trim() === targetRef && i.tailleSelectionnee.trim() === targetTaille
     );
 
     if (articleExistant) {
-      // S'il est là, on fait un PUT pour simplement augmenter la quantité
       const nouvelleQuantite = (articleExistant.quantiteArticle || 1) + 1;
       const payloadPut = {
         idPanier: vraiIdPanier,
-        reference: articleExistant.reference, // On garde la version DB avec espaces éventuels
+        reference: articleExistant.reference, 
         tailleSelectionnee: articleExistant.tailleSelectionnee,
         quantiteArticle: nouvelleQuantite
       };
@@ -174,7 +175,6 @@ const addToCart = async () => {
         body: JSON.stringify(payloadPut)
       });
     } else {
-      // S'il n'est pas là, on insère la nouveauté avec POST
       const payloadPost = {
         idPanier: vraiIdPanier, 
         reference: targetRef,
@@ -196,7 +196,7 @@ const addToCart = async () => {
   }
 };
 
-// --- GALERIE ---
+// --- GALERIE ET CARROUSEL ---
 const getLocalImage = (itemRef, index) => {
   const itemFolder = itemRef?.trim().length === 6 ? 'VELOS' : 'ACCESSOIRES'
   try {
@@ -216,6 +216,14 @@ const openZoom = () => {
 const closeZoom = () => {
   isZoomOpen.value = false
   document.body.style.overflow = ''
+}
+
+const scrollCarousel = (containerElem, direction) => {
+  if (containerElem) {
+    // 250px (largeur carte) + 20px (gap)
+    const scrollAmount = 270;
+    containerElem.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+  }
 }
 
 // --- GÉOMÉTRIE & DONNÉES ---
@@ -241,12 +249,20 @@ const fetchData = async () => {
     const cleanRef = reference.value
     const endpoint = isVelo.value ? 'VarianteVelo/GetFullDetails' : 'Accessoire/GetDetails'
     
-    const [resDetail, resCarac, resInv, resSimilar] = await Promise.all([
+    const fetchPromises = [
       fetch(`${API_BASE}/${endpoint}/${cleanRef}`),
       fetch(`${API_BASE}/ACaracteristique/GetByArticle/${cleanRef}`),
       fetch(`${API_BASE}/Articles/GetStock/${cleanRef}`),
       fetch(`${API_BASE}/Articles/GetSimilar/${cleanRef}`)
-    ])
+    ]
+
+    // Si c'est un vélo, on charge aussi les accessoires compatibles
+    if (isVelo.value) {
+      fetchPromises.push(fetch(`${API_BASE}/Accessoire/GetCompatibleWith/${cleanRef}`).catch(()=>null))
+    }
+
+    const responses = await Promise.all(fetchPromises)
+    const [resDetail, resCarac, resInv, resSimilar] = responses
 
     article.value = await resDetail.json()
     caracteristiques.value = await resCarac.json()
@@ -258,7 +274,15 @@ const fetchData = async () => {
       const similarData = await resSimilar.json()
       articlesSimilaires.value = similarData
         .filter(a => a.reference.trim() !== cleanRef)
-        .slice(0, 4)
+        .slice(0, 12) // On limite à 12 pour le carrousel
+    }
+
+    if (isVelo.value && responses.length > 4) {
+      const resCompat = responses[4]
+      if (resCompat && resCompat.ok) {
+         const compatData = await resCompat.json()
+         accessoiresCompatibles.value = compatData.slice(0, 12)
+      }
     }
 
     if (isVelo.value && article.value?.idModele) {
@@ -314,7 +338,6 @@ watch(reference, () => {
     selectedTaille.value = null
     sizeError.value = false
     batterieInfo.value = null
-    
     
     window.scrollTo({ top: 0, behavior: 'smooth' })
 })
@@ -569,23 +592,62 @@ onMounted(fetchData)
       </div>
     </div>
 
-    <div class="similar-section" v-if="articlesSimilaires.length > 0">
-      <h2 class="section-label">ARTICLES SIMILAIRES</h2>
-      <div class="similar-grid">
-        <RouterLink 
-          v-for="sim in articlesSimilaires" 
-          :key="sim.reference"
-          :to="{ name: 'visualize', params: { id: sim.reference.trim() } }"
-          class="similar-card"
-        >
-          <div class="similar-img-wrapper">
-            <img :src="getLocalImage(sim.reference, 1)" :alt="sim.nomArticle" class="similar-img" />
-          </div>
-          <div class="similar-info">
-            <h4 class="similar-name">{{ sim.nomArticle }}</h4>
-            <span class="similar-price">{{ sim.prix?.toLocaleString() }} €</span>
-          </div>
-        </RouterLink>
+
+    <div v-if="isVelo" class="calculator-integration-wrapper">
+      <div class="calculator-header">
+        <h2 class="section-label">CALCULATEUR DE TAILLE</h2>
+        <p>Trouvez la géométrie parfaite pour votre morphologie</p>
+      </div>
+      <div class="calculator-box">
+        <CubeCalculator />
+      </div>
+    </div>
+
+    <div class="carousel-section" v-if="isVelo && accessoiresCompatibles.length > 0">
+      <h2 class="section-label text-center">SOUVENT ACHETÉ AVEC</h2>
+      <div class="carousel-wrapper">
+        <button class="nav-btn-carousel prev" @click="scrollCarousel(compatContainer, -1)">&#10216;</button>
+        <div class="carousel-track" ref="compatContainer">
+          <RouterLink 
+            v-for="acc in accessoiresCompatibles" 
+            :key="acc.reference"
+            :to="{ name: 'visualize', params: { id: acc.reference.trim() } }"
+            class="similar-card"
+          >
+            <div class="similar-img-wrapper">
+              <img :src="getLocalImage(acc.reference, 1)" :alt="acc.nomArticle" class="similar-img" />
+            </div>
+            <div class="similar-info">
+              <h4 class="similar-name">{{ acc.nomArticle }}</h4>
+              <span class="similar-price">{{ acc.prix?.toLocaleString() }} €</span>
+            </div>
+          </RouterLink>
+        </div>
+        <button class="nav-btn-carousel next" @click="scrollCarousel(compatContainer, 1)">&#10217;</button>
+      </div>
+    </div>
+
+    <div class="carousel-section" v-if="articlesSimilaires.length > 0">
+      <h2 class="section-label text-center">ARTICLES SIMILAIRES</h2>
+      <div class="carousel-wrapper">
+        <button class="nav-btn-carousel prev" @click="scrollCarousel(similarContainer, -1)">&#10216;</button>
+        <div class="carousel-track" ref="similarContainer">
+          <RouterLink 
+            v-for="sim in articlesSimilaires" 
+            :key="sim.reference"
+            :to="{ name: 'visualize', params: { id: sim.reference.trim() } }"
+            class="similar-card"
+          >
+            <div class="similar-img-wrapper">
+              <img :src="getLocalImage(sim.reference, 1)" :alt="sim.nomArticle" class="similar-img" />
+            </div>
+            <div class="similar-info">
+              <h4 class="similar-name">{{ sim.nomArticle }}</h4>
+              <span class="similar-price">{{ sim.prix?.toLocaleString() }} €</span>
+            </div>
+          </RouterLink>
+        </div>
+        <button class="nav-btn-carousel next" @click="scrollCarousel(similarContainer, 1)">&#10217;</button>
       </div>
     </div>
 
@@ -761,11 +823,58 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 
 .help-circle { background: #00CFE8; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 0.7rem; margin-left: 5px; cursor: help; }
 
-/* Articles Similaires */
-.similar-section { margin-top: 80px; padding-top: 40px; border-top: 1px solid #eee; }
-.similar-section .section-label { font-size: 1.5rem; margin-bottom: 30px; text-align: center; }
-.similar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px; }
-.similar-card { text-decoration: none; color: inherit; background: #fff; border: 1px solid #f0f0f0; border-radius: 8px; overflow: hidden; transition: transform 0.2s ease, box-shadow 0.2s ease; display: flex; flex-direction: column; }
+/* Styles du Carrousel (Articles Similaires et Compatibles) */
+.text-center { text-align: center; }
+.carousel-section { margin-top: 60px; padding-top: 40px; border-top: 1px solid #eee; position: relative; }
+.carousel-section .section-label { font-size: 1.5rem; margin-bottom: 30px; text-align: center; }
+.carousel-wrapper { position: relative; display: flex; align-items: center; justify-content: center; max-width: 100%; margin: 0 auto; padding: 0 20px; }
+.carousel-track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 15px 5px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  
+  /* Lignes modifiées pour le centrage */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.carousel-track::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+.nav-btn-carousel {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #fff;
+  border: 1px solid #ddd;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.nav-btn-carousel.prev { left: 0px; }
+.nav-btn-carousel.next { right: 0px; }
+
+/* Styles des Cartes dans le Carrousel */
+.similar-card { 
+  flex: 0 0 auto; 
+  width: 250px; 
+  scroll-snap-align: start; 
+  text-decoration: none; 
+  color: inherit; 
+  background: #fff; 
+  border: 1px solid #f0f0f0; 
+  border-radius: 8px; 
+  overflow: hidden; 
+  transition: transform 0.2s ease, box-shadow 0.2s ease; 
+  display: flex; 
+  flex-direction: column; 
+}
 .similar-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
 .similar-img-wrapper { background: #f9f9f9; padding: 20px; display: flex; justify-content: center; align-items: center; height: 200px; }
 .similar-img { max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -791,4 +900,40 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 
 @media (max-width: 1000px) { .product-hero { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .modal-actions { flex-direction: column; } }
+
+.calculator-integration-wrapper {
+  margin: 60px 0;
+  padding: 50px 20px;
+  background-color: #f8f9fa; /* Fond gris très clair pour faire ressortir la zone */
+  border-top: 1px solid #eaeaea;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.calculator-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.calculator-header .section-label {
+  font-size: 1.8rem;
+  margin-bottom: 5px;
+  color: #000;
+}
+
+.calculator-header p {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.calculator-box {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04); /* Ombre douce et moderne */
+  border: 1px solid #f0f0f0;
+  overflow: hidden; /* Garde les bords arrondis propres */
+  padding: 10px;
+}
 </style>

@@ -1,60 +1,60 @@
 <template>
-    <main class="login-page">
-      <div class="auth-card">
-        <header class="card-header">
-          <h1>{{ step === 1 ? 'CONNEXION' : 'DOUBLE AUTHENTIFICATION' }}</h1>
-          <div class="separator"></div>
-        </header>
+  <main class="login-page">
+    <div class="auth-card">
+      <header class="card-header">
+        <h1>{{ step === 1 ? 'CONNEXION' : 'DOUBLE AUTHENTIFICATION' }}</h1>
+        <div class="separator"></div>
+      </header>
 
-        <form v-if="step === 1" @submit.prevent="handleLogin">
-          <div class="field-group">
-            <label>ADRESSE EMAIL</label>
-            <input type="email" v-model="email" placeholder="NOM@EXEMPLE.COM" required>
-          </div>
-          <div class="field-group password-container">
-            <label>MOT DE PASSE</label>
-            <div class="input-wrapper">
-              <input :type="showPassword ? 'text' : 'password'" v-model="password" placeholder="••••••••" required>
-              <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
-                {{ showPassword ? 'CACHER' : 'VOIR' }}
-              </button>
-            </div>
-          </div>
-
-          <transition name="fade">
-            <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">{{ feedback }}</div>
-          </transition>
-
-          <button type="submit" :disabled="loading" class="submit-btn">
-            {{ loading ? 'VÉRIFICATION...' : 'SE CONNECTER' }}
-          </button>
-          
-          <div class="google-divider"><span>OU</span></div>
-          <div class="google-auth-container">
-            <GoogleSignInButton @success="handleGoogleSuccess" @error="handleGoogleError" />
-          </div>
-        </form>
-
-        <div v-else class="verification-container">
-          <p class="verification-info" style="text-align: center; font-size: 11px; margin-bottom: 20px;">
-            Un code de sécurité a été envoyé à votre adresse email.
-          </p>
-          <div class="field-group">
-            <label>CODE À 6 CHIFFRES</label>
-            <input type="text" v-model="userEnteredCode" placeholder="000000" maxlength="6" style="text-align: center; letter-spacing: 10px; font-size: 20px;" required>
-          </div>
-          <transition name="fade">
-            <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">{{ feedback }}</div>
-          </transition>
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button @click="confirmA2F" :disabled="loading" class="submit-btn">
-              {{ loading ? 'VÉRIFICATION...' : 'VALIDER LE CODE' }}
+      <form v-if="step === 1" @submit.prevent="handleLogin">
+        <div class="field-group">
+          <label>ADRESSE EMAIL</label>
+          <input type="email" v-model="email" placeholder="NOM@EXEMPLE.COM" required>
+        </div>
+        <div class="field-group password-container">
+          <label>MOT DE PASSE</label>
+          <div class="input-wrapper">
+            <input :type="showPassword ? 'text' : 'password'" v-model="password" placeholder="••••••••" required>
+            <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
+              {{ showPassword ? 'CACHER' : 'VOIR' }}
             </button>
-            <button @click="step = 1" class="back-btn">RETOUR</button>
           </div>
         </div>
+
+        <transition name="fade">
+          <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">{{ feedback }}</div>
+        </transition>
+
+        <button type="submit" :disabled="loading" class="submit-btn">
+          {{ loading ? 'VÉRIFICATION...' : 'SE CONNECTER' }}
+        </button>
+        
+        <div class="google-divider"><span>OU</span></div>
+        <div class="google-auth-container">
+          <GoogleSignInButton @success="handleGoogleSuccess" @error="handleGoogleError" />
+        </div>
+      </form>
+
+      <div v-else class="verification-container">
+        <p class="verification-info" style="text-align: center; font-size: 11px; margin-bottom: 20px;">
+          Un code de sécurité a été envoyé à votre adresse email.
+        </p>
+        <div class="field-group">
+          <label>CODE À 6 CHIFFRES</label>
+          <input type="text" v-model="userEnteredCode" placeholder="000000" maxlength="6" style="text-align: center; letter-spacing: 10px; font-size: 20px;" required>
+        </div>
+        <transition name="fade">
+          <div v-if="feedback" :class="['message', isError ? 'error' : 'success']">{{ feedback }}</div>
+        </transition>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button @click="confirmA2F" :disabled="loading" class="submit-btn">
+            {{ loading ? 'VÉRIFICATION...' : 'VALIDER LE CODE' }}
+          </button>
+          <button @click="step = 1" class="back-btn">RETOUR</button>
+        </div>
       </div>
-    </main>
+    </div>
+  </main>
 </template>
 
 <script setup>
@@ -64,7 +64,7 @@ import { useRouter } from 'vue-router';
 import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 import emailjs from '@emailjs/browser';
 
-const store = useAppStore(); // On utilise uniquement 'store'
+const store = useAppStore();
 const router = useRouter();
 
 const email = ref('');
@@ -139,6 +139,7 @@ const handleLogin = async () => {
     }
 };
 
+// --- ÉTAPE 2 : VÉRIFICATION DU CODE ---
 const confirmA2F = () => {
     if (userEnteredCode.value === generatedCode.value) {
         finalizeLogin(pendingUser.value);
@@ -149,7 +150,6 @@ const confirmA2F = () => {
 };
 
 const finalizeLogin = (userData) => {
-    // On unifie le store ici (on vire appStore qui n'existe pas)
     store.user = userData;
     store.login(userData);
     isError.value = false;
@@ -178,8 +178,6 @@ const handleGoogleSuccess = async (response) => {
         const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
         
         if (!res.ok) {
-            // Si l'utilisateur n'existe pas en BDD, on l'empêche de se connecter
-            // (Ou tu peux le rediriger vers la page de création de compte)
             throw new Error("COMPTE INEXISTANT. VEUILLEZ CRÉER UN COMPTE.");
         }
 

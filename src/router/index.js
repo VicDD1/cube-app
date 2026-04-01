@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-import { useAppStore } from '@/stores/useStore';
+import { useAppStore } from '../stores/useStore';
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -125,6 +125,7 @@ const router = createRouter({
                 { path: '', name: 'dashboard', component: () => import('../views/ProfileDashBoard.vue') },
                 { path: 'infos', name: 'profile-infos', component: () => import('../views/InfosProfil.vue') },
                 { path: 'commandes', name: 'profile-orders', component: () => import('../views/CommandesProfil.vue') },
+                { path: 'commande/:id', name: 'order-info', component: () => import('../views/CommandeDetail.vue') },
                 { path: 'adresses', name: 'profile-addresses', component: () => import('../views/AdressesProfil.vue') },
             ]
         },
