@@ -1,3 +1,113 @@
+<template>
+  <div class="adresses-container">
+    
+    <div class="header-section">
+      <h2>CARNET D'ADRESSES</h2>
+      <p>Gérez vos adresses de facturation et de livraison pour faciliter vos prochaines commandes.</p>
+      <div class="separator"></div>
+    </div>
+
+    <div v-if="loading" style="padding: 40px; text-align: center; color: #888; font-weight: bold;">
+      Chargement de vos adresses...
+    </div>
+
+    <div v-else class="addresses-grid">
+      
+      <div class="address-card add-new-card" @click="openModal">
+        <div class="add-icon">+</div>
+        <p>AJOUTER UNE ADRESSE DE LIVRAISON</p>
+      </div>
+
+      <div v-for="adr in adresses" :key="adr.idAdresse" class="address-card">
+        <div class="card-header">
+          <span :class="['badge-type', adr.type === 'FACTURATION' ? 'badge-fact' : 'badge-liv']">{{ adr.type }}</span>
+          <span v-if="adr.isDefault" class="badge-default">PRINCIPALE</span>
+        </div>
+        <div class="card-body">
+          <h4 class="user-name">{{ adr.prenom }} {{ adr.nom?.toUpperCase() }}</h4>
+          <p class="address-line">{{ adr.rue }}</p>
+          <p class="address-line">{{ adr.cp }} {{ adr.ville?.toUpperCase() }}</p>
+          <p class="address-line country">{{ adr.pays?.toUpperCase() }}</p>
+        </div>
+        
+        <div class="card-footer" v-if="adr.type === 'LIVRAISON'">
+          <button 
+            class="btn-action delete" 
+            :class="{ 'btn-disabled': !adr.canDelete }"
+            :disabled="!adr.canDelete"
+            @click="supprimerAdresse(adr)"
+            :title="!adr.canDelete ? 'Vous ne pouvez pas supprimer votre unique adresse de livraison' : ''"
+          >
+            Supprimer
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal-content">
+        
+        <button class="close-btn" @click="closeModal">✕</button>
+        <h3>NOUVELLE ADRESSE DE LIVRAISON</h3>
+        <div class="modal-separator"></div>
+
+        <form @submit.prevent="submitNewAddress" class="modal-form">
+          <div class="row">
+            <div class="field-group">
+              <label>NOM DU DESTINATAIRE</label>
+              <input type="text" v-model="form.nom" required>
+            </div>
+            <div class="field-group">
+              <label>PRÉNOM DU DESTINATAIRE</label>
+              <input type="text" v-model="form.prenom" required>
+            </div>
+          </div>
+
+          <div class="field-group" style="position: relative;">
+            <label>RECHERCHER UNE RUE</label>
+            <input 
+              type="text" 
+              v-model="form.rue" 
+              @input="onAddressInput(form.rue)"
+              placeholder="Commencez à taper votre rue..." 
+              autocomplete="off"
+              required
+            >
+            <ul v-if="suggestions.length > 0" class="address-suggestions">
+              <li v-for="s in suggestions" :key="s.properties.id" @click="selectAdresse(s)">
+                {{ s.properties.label }}
+              </li>
+            </ul>
+          </div>
+
+          <div class="row">
+            <div class="field-group">
+              <label>CODE POSTAL</label>
+              <input type="text" v-model="form.cp" readonly required style="background-color: #f4f4f4;">
+            </div>
+            <div class="field-group">
+              <label>VILLE</label>
+              <input type="text" v-model="form.ville" readonly required style="background-color: #f4f4f4;">
+            </div>
+          </div>
+
+          <div v-if="formError" class="error-msg">{{ formError }}</div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" @click="closeModal" :disabled="isSubmitting">ANNULER</button>
+            <button type="submit" class="btn-save" :disabled="isSubmitting">
+              {{ isSubmitting ? 'ENREGISTREMENT...' : 'ENREGISTRER L\'ADRESSE' }}
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+
+  </div>
+</template>
+
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useAppStore } from '../stores/useStore'
@@ -91,21 +201,8 @@ const submitNewAddress = async () => {
 
     if (!resLivraison.ok) throw new Error("Erreur lors de la liaison de l'adresse de livraison.")
 
-    adresses.value.push({
-      idAdresse: adrData.idAdresse,
-      idClient: appStore.user.idClient,
-      type: 'LIVRAISON',
-      prenom: form.prenom.trim(),
-      nom: form.nom.trim().toUpperCase(),
-      rue: form.rue,
-      cp: form.cp,
-      ville: form.ville,
-      pays: form.pays,
-      isDefault: false, // Laisse false si tu ne veux pas le badge "PRINCIPALE"
-      canDelete: true
-    })
-
-    closeModal()
+    await fetchAdresses();
+    closeModal();
 
   } catch (err) {
     formError.value = err.message
@@ -122,7 +219,6 @@ const fetchAdresses = async () => {
   try {
     const listAdresses = []
 
-    // 1. ADRESSE DE FACTURATION
     if (appStore.user.idAdresseFacturation) {
       const resFact = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Adresse/GetAdresseById/${appStore.user.idAdresseFacturation}`)
       if (resFact.ok) {
@@ -137,7 +233,7 @@ const fetchAdresses = async () => {
           ville: adrFact.ville,
           pays: adrFact.pays || 'France',
           isDefault: true, 
-          canDelete: false
+          canDelete: false 
         })
       }
     }
@@ -146,25 +242,30 @@ const fetchAdresses = async () => {
     const resLiv = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/GetByClient/${appStore.user.idClient}`)
     if (resLiv.ok) {
       const dataLiv = await resLiv.json()
-      const livraisons = dataLiv.$values || dataLiv || []
+      const livraisons = dataLiv.$values || dataLiv || []   
+      const totalLivraisons = livraisons.length;
+
       livraisons.forEach(liv => {
-        const adrDetail = liv.adresseNavigation || liv.adresse || liv
-          listAdresses.push({
-            idAdresse: adrDetail.idAdresse,
-            idClient: appStore.user.idClient,
-            type: 'LIVRAISON',
-            prenom: liv.prenomDestinataire || appStore.user.prenomClient,
-            nom: liv.nomDestinataire || appStore.user.nomClient,
-            rue: adrDetail.rue,
-            cp: adrDetail.codePostal,
-            ville: adrDetail.ville,
-            pays: adrDetail.pays || 'France',
-            isDefault: false,
-            canDelete: true
-          })
+        const adrDetail = liv.idAdresseNavigation || liv.adresseNavigation || liv.adresse || liv
+        
+        listAdresses.push({
+          idAdresse: adrDetail.idAdresse,
+          idClient: appStore.user.idClient,
+          type: 'LIVRAISON',
+          prenom: liv.prenomDestinataire || appStore.user.prenomClient,
+          nom: liv.nomDestinataire || appStore.user.nomClient,
+          rue: adrDetail.rue,              
+          cp: adrDetail.codePostal,        
+          ville: adrDetail.ville,          
+          pays: adrDetail.pays || 'France',
+          isDefault: false,
+          canDelete: totalLivraisons > 1 
+        })
       })
     }
+    
     adresses.value = listAdresses
+    
   } catch (err) {
     error.value = "Impossible de charger vos adresses."
   } finally {
@@ -175,129 +276,22 @@ const fetchAdresses = async () => {
 onMounted(() => { fetchAdresses() })
 
 const supprimerAdresse = async (adr) => {
-  if (!confirm("Voulez-vous vraiment supprimer cette adresse de livraison ?")) return
+  // Suppression instantanée, sans confirmation
   try {
     const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/DeleteAdresseLivraison/${adr.idClient}/${adr.idAdresse}`, {
       method: 'DELETE'
     })
     if (!res.ok) throw new Error("Erreur lors de la suppression")
-    adresses.value = adresses.value.filter(a => a.idAdresse !== adr.idAdresse)
+    
+    await fetchAdresses() 
+    
   } catch (err) {
-    alert("Impossible de supprimer l'adresse.")
+    console.error("Impossible de supprimer l'adresse.", err)
   }
-}
-
-const modifierAdresse = (adr) => {
-  alert(`La modification sera implémentée bientôt pour : ${adr.rue}`)
 }
 </script>
 
-<template>
-  <div class="adresses-container">
-    
-    <div class="header-section">
-      <h2>CARNET D'ADRESSES</h2>
-      <p>Gérez vos adresses de facturation et de livraison pour faciliter vos prochaines commandes.</p>
-      <div class="separator"></div>
-    </div>
-
-    <div v-if="loading" style="padding: 40px; text-align: center; color: #888; font-weight: bold;">
-      Chargement de vos adresses...
-    </div>
-
-    <div v-else class="addresses-grid">
-      
-      <div class="address-card add-new-card" @click="openModal">
-        <div class="add-icon">+</div>
-        <p>AJOUTER UNE ADRESSE DE LIVRAISON</p>
-      </div>
-
-      <div v-for="adr in adresses" :key="adr.idAdresse" class="address-card">
-        <div class="card-header">
-          <span :class="['badge-type', adr.type === 'FACTURATION' ? 'badge-fact' : 'badge-liv']">{{ adr.type }}</span>
-          <span v-if="adr.isDefault" class="badge-default">PRINCIPALE</span>
-        </div>
-        <div class="card-body">
-          <h4 class="user-name">{{ adr.prenom }} {{ adr.nom?.toUpperCase() }}</h4>
-          <p class="address-line">{{ adr.rue }}</p>
-          <p class="address-line">{{ adr.cp }} {{ adr.ville?.toUpperCase() }}</p>
-          <p class="address-line country">{{ adr.pays?.toUpperCase() }}</p>
-        </div>
-        <div class="card-footer" v-if="adr.canDelete || adr.type === 'FACTURATION'">
-          <button v-if="adr.type === 'LIVRAISON'" class="btn-action edit" @click="modifierAdresse(adr)">Modifier</button>
-          <template v-if="adr.canDelete">
-            <span class="divider">|</span>
-            <button class="btn-action delete" @click="supprimerAdresse(adr)">Supprimer</button>
-          </template>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal-content">
-        
-        <button class="close-btn" @click="closeModal">✕</button>
-        <h3>NOUVELLE ADRESSE DE LIVRAISON</h3>
-        <div class="modal-separator"></div>
-
-        <form @submit.prevent="submitNewAddress" class="modal-form">
-          <div class="row">
-            <div class="field-group">
-              <label>NOM DU DESTINATAIRE</label>
-              <input type="text" v-model="form.nom" required>
-            </div>
-            <div class="field-group">
-              <label>PRÉNOM DU DESTINATAIRE</label>
-              <input type="text" v-model="form.prenom" required>
-            </div>
-          </div>
-
-          <div class="field-group" style="position: relative;">
-            <label>RECHERCHER UNE RUE</label>
-            <input 
-              type="text" 
-              v-model="form.rue" 
-              @input="onAddressInput(form.rue)"
-              placeholder="Commencez à taper votre rue..." 
-              autocomplete="off"
-              required
-            >
-            <ul v-if="suggestions.length > 0" class="address-suggestions">
-              <li v-for="s in suggestions" :key="s.properties.id" @click="selectAdresse(s)">
-                {{ s.properties.label }}
-              </li>
-            </ul>
-          </div>
-
-          <div class="row">
-            <div class="field-group">
-              <label>CODE POSTAL</label>
-              <input type="text" v-model="form.cp" readonly required style="background-color: #f4f4f4;">
-            </div>
-            <div class="field-group">
-              <label>VILLE</label>
-              <input type="text" v-model="form.ville" readonly required style="background-color: #f4f4f4;">
-            </div>
-          </div>
-
-          <div v-if="formError" class="error-msg">{{ formError }}</div>
-
-          <div class="modal-actions">
-            <button type="button" class="btn-cancel" @click="closeModal" :disabled="isSubmitting">ANNULER</button>
-            <button type="submit" class="btn-save" :disabled="isSubmitting">
-              {{ isSubmitting ? 'ENREGISTREMENT...' : 'ENREGISTRER L\'ADRESSE' }}
-            </button>
-          </div>
-        </form>
-
-      </div>
-    </div>
-
-  </div>
-</template>
-
 <style scoped>
-/* --- STYLES EXISTANTS DES CARTES --- */
 .adresses-container {
   background: #fff;
   padding: 40px;
@@ -337,13 +331,17 @@ const modifierAdresse = (adr) => {
 .address-line { font-size: 0.9rem; color: #555; margin: 0 0 5px 0; line-height: 1.4; }
 .country { font-weight: 800; color: #111; margin-top: 10px; }
 
-.card-footer { border-top: 1px solid #eaeaea; padding-top: 15px; display: flex; align-items: center; gap: 15px; min-height: 35px;} /* min-height pour alignement si facturation n'a pas de bouton */
+.card-footer { border-top: 1px solid #eaeaea; padding-top: 15px; display: flex; align-items: center; gap: 15px; min-height: 35px;}
 .btn-action { background: none; border: none; padding: 0; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: color 0.2s; }
-.btn-action.edit { color: #888; text-decoration: underline; }
-.btn-action.edit:hover { color: #000; }
 .btn-action.delete { color: #cc0000; }
-.btn-action.delete:hover { text-decoration: underline; color: #990000; }
-.divider { color: #ccc; font-size: 0.8rem; }
+.btn-action.delete:hover:not(:disabled) { text-decoration: underline; color: #990000; }
+
+/* LE STYLE DU BOUTON DÉSACTIVÉ */
+.btn-action.delete.btn-disabled {
+  color: #ccc; 
+  cursor: not-allowed; 
+  text-decoration: none !important; 
+}
 
 .modal-overlay {
   position: fixed;

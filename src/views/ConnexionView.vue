@@ -76,7 +76,7 @@ const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
 
-const step = ref(1); // 1 = login, 2 = double auth
+const step = ref(1); 
 const userEnteredCode = ref('');
 const generatedCode = ref('');
 const pendingUser = ref(null);

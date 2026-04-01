@@ -47,7 +47,6 @@ const menuItems = [
     </nav>
 
     <div class="sidebar-footer">
-      <button class="btn-secondary">ANONYMISER MON COMPTE</button>
       <button class="btn-danger">SUPPRIMER MON COMPTE</button>
     </div>
     

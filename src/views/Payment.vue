@@ -9,13 +9,15 @@ const router = useRouter()
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 const idClient = computed(() => appStore.user?.idClient || null)
-const cart = ref({ lignePaniers: [], idPanier: null }) // Initialisé avec idPanier
+const cart = ref({ lignePaniers: [], idPanier: null }) 
 const loading = ref(true)
 
 const showPaymentModal = ref(false)
 const isPaypalLoading = ref(false)
 
-const userAddress = ref({ rue: '', codePostal: '', ville: '' })
+// --- GESTION DES ADRESSES ---
+const addresses = ref([])
+const selectedAddressId = ref(null)
 
 const subTotalCart = computed(() => {
   if (!cart.value?.lignePaniers) return 0
@@ -24,16 +26,21 @@ const subTotalCart = computed(() => {
 
 const finalTotalCart = computed(() => subTotalCart.value)
 
-
 const insertionCommande = async () => {
   if (!idClient.value || !cart.value.lignePaniers?.length) {
     console.error("Données client ou panier manquantes");
     return false;
   }
 
+  // Sécurité : Vérifier qu'une adresse est bien sélectionnée
+  if (!selectedAddressId.value) {
+    alert("Veuillez sélectionner une adresse de livraison.");
+    return false;
+  }
+
   const commandeData = {
     idClient: parseInt(idClient.value),
-    idAdresse: 10, 
+    idAdresse: parseInt(selectedAddressId.value), // L'ID réel sélectionné !
     idTypeLivraison: 2, 
     idPanier: parseInt(cart.value.idPanier),
     dateCommande: new Date().toISOString().split('T')[0], 
@@ -52,8 +59,6 @@ const insertionCommande = async () => {
     }))
   };
 
-  console.log("🚀 Tentative d'insertion avec objets de navigation simulés...", commandeData);
-
   try {
     const response = await fetch(`${API_BASE}/Commande/PostCommande`, {
       method: 'POST',
@@ -69,10 +74,7 @@ const insertionCommande = async () => {
       return true;
     } else {
       const errorDetail = await response.json();
-      console.error("❌ ÉCHEC FINAL - L'API est trop restrictive :", errorDetail.errors);
-      
-      // Si ça échoue encore ici, il est techniquement IMPOSSIBLE de passer
-      // par cette API sans modifier le code C# (Backend).
+      console.error("❌ ÉCHEC FINAL :", errorDetail);
       return false;
     }
   } catch (err) {
@@ -81,11 +83,9 @@ const insertionCommande = async () => {
   }
 };
 
-
 const selectStripe = async () => {
   isPaypalLoading.value = true 
   try {
-    // 1. Création de la session Stripe
     const response = await fetch('http://localhost:4242/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -99,13 +99,9 @@ const selectStripe = async () => {
     const session = await response.json()
 
     if (session.url) {
-      // 2. ÉTAPE CRUCIALE : On enregistre la commande en base de données 
-      // JUSTE AVANT de quitter la page pour Stripe.
-      console.log("Enregistrement de la commande avant redirection Stripe...");
       const success = await insertionCommande();
 
       if (success) {
-        // 3. On redirige vers Stripe seulement si l'insertion API a réussi
         window.location.href = session.url;
       } else {
         alert("Erreur lors de la création de la commande. Paiement annulé.");
@@ -118,6 +114,7 @@ const selectStripe = async () => {
     isPaypalLoading.value = false
   }
 }
+
 // --- PAYPAL ---
 const initPayPal = async () => {
   isPaypalLoading.value = true
@@ -137,12 +134,8 @@ const initPayPal = async () => {
           })
         },
         onApprove: async (data, actions) => {
-          console.log("💰 Paiement PayPal approuvé par l'utilisateur");
           await actions.order.capture()
-          console.log("📸 Capture PayPal réussie, lancement insertionCommande...");
-          
           const success = await insertionCommande()
-          
           if (success) {
             router.push('/confirmation')
           }
@@ -158,6 +151,10 @@ const initPayPal = async () => {
 }
 
 const openPaymentModal = () => {
+  if (!selectedAddressId.value) {
+    alert("Veuillez sélectionner une adresse de livraison avant de payer.");
+    return;
+  }
   showPaymentModal.value = true
   nextTick(() => {
     const container = document.getElementById('paypal-button-container')
@@ -166,22 +163,57 @@ const openPaymentModal = () => {
   })
 }
 
-const fetchAddress = async () => {
+// --- CHARGEMENT DES ADRESSES ---
+const fetchAddresses = async () => {
   if (!idClient.value) return
   try {
-    const resLivraison = await fetch(`${API_BASE}/AdresseLivraison/GetAdressesLivraison`)
-    if (resLivraison.ok) {
-      const livraisons = await resLivraison.json()
-      const userLivraison = livraisons.find(l => l.idClient === idClient.value)
-      if (userLivraison) {
-        const resAddr = await fetch(`${API_BASE}/Adresse/GetAdresseById/${userLivraison.idAdresse}`)
-        if (resAddr.ok) {
-          const addrData = await resAddr.json()
-          userAddress.value = { rue: addrData.rue, codePostal: addrData.codePostal, ville: addrData.ville }
-        }
+    const list = []
+
+    // 1. Facturation (Adresse principale du compte)
+    if (appStore.user?.idAdresseFacturation) {
+      const resFact = await fetch(`${API_BASE}/Adresse/GetAdresseById/${appStore.user.idAdresseFacturation}`)
+      if (resFact.ok) {
+        const adrFact = await resFact.json()
+        list.push({
+          idAdresse: adrFact.idAdresse,
+          titre: 'Adresse de facturation (Principale)',
+          rue: adrFact.rue,
+          cp: adrFact.codePostal,
+          ville: adrFact.ville
+        })
       }
     }
-  } catch (err) { console.error("Erreur adresse:", err) }
+
+    // 2. Adresses de livraison
+    const resLiv = await fetch(`${API_BASE}/AdresseLivraison/GetByClient/${idClient.value}`)
+    if (resLiv.ok) {
+      const dataLiv = await resLiv.json()
+      const livraisons = dataLiv.$values || dataLiv || []
+      
+      livraisons.forEach(liv => {
+        const adrDetail = liv.idAdresseNavigation || liv.adresseNavigation || liv.adresse || liv
+        // On évite les doublons si l'adresse de facturation est aussi une adresse de livraison
+        if (!list.find(a => a.idAdresse === adrDetail.idAdresse)) {
+          list.push({
+            idAdresse: adrDetail.idAdresse,
+            titre: 'Adresse de livraison',
+            rue: adrDetail.rue,
+            cp: adrDetail.codePostal,
+            ville: adrDetail.ville
+          })
+        }
+      })
+    }
+
+    addresses.value = list
+    // Par défaut, on sélectionne la première adresse de la liste
+    if (list.length > 0) {
+      selectedAddressId.value = list[0].idAdresse
+    }
+
+  } catch (err) { 
+    console.error("Erreur chargement adresses:", err) 
+  }
 }
 
 const fetchCart = async () => {
@@ -198,7 +230,6 @@ const fetchCart = async () => {
       
       cart.value = detailsData;
       cart.value.idPanier = data.idPanier; 
-      console.log("🛒 Panier chargé avec ID:", cart.value.idPanier);
 
       await Promise.all(cart.value.lignePaniers.map(async (item) => {
         const artRes = await fetch(`${API_BASE}/Articles/GetArticleDetails/${item.reference.trim()}`)
@@ -215,7 +246,7 @@ const fetchCart = async () => {
 
 onMounted(() => {
   fetchCart()
-  fetchAddress()
+  fetchAddresses()
 })
 </script>
 
@@ -229,22 +260,36 @@ onMounted(() => {
 
     <div v-else class="checkout-grid">
       <div class="form-column">
+        
         <section class="checkout-section">
-          <h2>1. ADRESSE DE LIVRAISON</h2>
-          <form class="address-form" @submit.prevent>
-            <div class="input-row">
-              <div class="input-group"><label>PRÉNOM</label><input type="text" :value="appStore.user?.prenomClient" readonly /></div>
-              <div class="input-group"><label>NOM</label><input type="text" :value="appStore.user?.nomClient" readonly /></div>
-            </div>
-            <div class="input-group">
-              <label>ADRESSE COMPLÈTE</label>
-              <input type="text" v-model="userAddress.rue" placeholder="Numéro et nom de rue" />
-            </div>
-            <div class="input-row">
-              <div class="input-group"><label>CODE POSTAL</label><input type="text" v-model="userAddress.codePostal" /></div>
-              <div class="input-group"><label>VILLE</label><input type="text" v-model="userAddress.ville" /></div>
-            </div>
-          </form>
+          <div class="section-title-wrapper">
+            <h2>1. ADRESSE DE LIVRAISON</h2>
+            <button class="btn-add-address" @click="router.push('/profil/adresses')">
+              + Ajouter / Modifier
+            </button>
+          </div>
+
+          <div v-if="addresses.length === 0" class="no-address-box">
+            <p>Vous n'avez pas encore d'adresse enregistrée.</p>
+            <button class="pay-btn" style="padding: 15px; margin-top: 10px;" @click="router.push('/profil/adresses')">CRÉER UNE ADRESSE</button>
+          </div>
+
+          <div v-else class="address-list">
+            <label 
+              v-for="adr in addresses" 
+              :key="adr.idAdresse" 
+              class="address-selector-card" 
+              :class="{ active: selectedAddressId === adr.idAdresse }"
+            >
+              <input type="radio" :value="adr.idAdresse" v-model="selectedAddressId" name="address_selection" />
+              <div class="address-info">
+                <span class="a-title">{{ adr.titre }}</span>
+                <span class="a-name">{{ appStore.user?.prenomClient }} {{ appStore.user?.nomClient?.toUpperCase() }}</span>
+                <span class="a-line">{{ adr.rue }}</span>
+                <span class="a-line">{{ adr.cp }} {{ adr.ville?.toUpperCase() }}</span>
+              </div>
+            </label>
+          </div>
         </section>
 
         <section class="checkout-section">
@@ -286,7 +331,7 @@ onMounted(() => {
             <span class="total-amount">{{ finalTotalCart.toLocaleString() }} €</span>
           </div>
           
-          <button class="pay-btn" @click="openPaymentModal">PROCÉDER AU PAIEMENT</button>
+          <button class="pay-btn" @click="openPaymentModal" :disabled="!selectedAddressId">PROCÉDER AU PAIEMENT</button>
         </div>
       </div>
     </div>
@@ -321,14 +366,27 @@ onMounted(() => {
 .checkout-header h1 { font-size: 2.2rem; font-weight: 900; font-style: italic; margin: 0; }
 .checkout-grid { display: grid; grid-template-columns: 1fr 400px; gap: 50px; align-items: start; }
 .checkout-section { margin-bottom: 40px; }
-.checkout-section h2 { font-size: 1.2rem; font-weight: 900; margin-bottom: 20px; }
 
-.input-row { display: flex; gap: 15px; }
-.input-group { flex: 1; margin-bottom: 15px; }
-.input-group label { display: block; font-size: 0.8rem; font-weight: 800; margin-bottom: 5px; color: #666; }
-.input-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fcfcfc; }
+.section-title-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.section-title-wrapper h2 { font-size: 1.2rem; font-weight: 900; margin: 0; }
+.btn-add-address { background: none; border: none; color: #00a8e8; font-weight: 800; font-style: italic; cursor: pointer; font-size: 0.9rem; text-decoration: underline; }
+.btn-add-address:hover { color: #000; }
+
+.no-address-box { padding: 30px; border: 2px dashed #ccc; border-radius: 8px; text-align: center; background: #fafafa; }
+.no-address-box p { font-weight: 600; color: #555; margin-bottom: 15px; }
+
+.address-list { display: flex; flex-direction: column; gap: 15px; }
+.address-selector-card { display: flex; align-items: flex-start; padding: 20px; border: 2px solid #eaeaea; border-radius: 8px; cursor: pointer; transition: 0.2s; background: #fff; }
+.address-selector-card:hover { border-color: #ccc; }
+.address-selector-card.active { border-color: #00a8e8; background: rgba(0, 168, 232, 0.03); }
+.address-selector-card input[type="radio"] { margin-top: 4px; margin-right: 15px; cursor: pointer; accent-color: #00a8e8; }
+.address-info { display: flex; flex-direction: column; }
+.a-title { font-size: 0.7rem; font-weight: 900; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.a-name { font-weight: 900; margin-bottom: 4px; font-size: 1rem; }
+.a-line { font-size: 0.95rem; font-weight: 500; color: #555; margin-bottom: 2px; }
 
 .delivery-card { display: flex; align-items: center; padding: 20px; border: 2px solid #00a8e8; border-radius: 8px; background: rgba(0, 168, 232, 0.05); }
+.delivery-card input { accent-color: #00a8e8; }
 .delivery-info { flex-grow: 1; margin-left: 15px; display: flex; flex-direction: column; }
 .d-title { font-weight: 800; }
 .d-price { font-weight: 900; color: #00a8e8; }
@@ -344,7 +402,8 @@ onMounted(() => {
 .total-amount { font-weight: 900; font-size: 1.8rem; }
 
 .pay-btn { width: 100%; background: #000; color: #fff; border: none; padding: 20px; font-weight: 900; font-size: 1.1rem; border-radius: 8px; cursor: pointer; transition: 0.3s; }
-.pay-btn:hover { background: #00a8e8; transform: translateY(-2px); }
+.pay-btn:hover:not(:disabled) { background: #00a8e8; transform: translateY(-2px); }
+.pay-btn:disabled { background: #ccc; cursor: not-allowed; }
 
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 2000; display: flex; justify-content: center; align-items: center; }
 .modal-content { background: #fff; padding: 40px; border-radius: 16px; width: 90%; max-width: 450px; text-align: center; position: relative; }
@@ -353,4 +412,9 @@ onMounted(() => {
 .payment-methods { display: flex; flex-direction: column; gap: 20px; margin-top: 20px; }
 .gateway-btn { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 15px; border: 2px solid #eee; border-radius: 12px; background: #fff; cursor: pointer; font-weight: 800; }
 .payment-logo { height: 25px; }
+
+@media (max-width: 900px) {
+  .checkout-grid { grid-template-columns: 1fr; }
+  .summary-box { position: static; }
+}
 </style>

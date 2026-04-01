@@ -8,9 +8,8 @@ export const useAppStore = defineStore('app', () => {
   const user = ref(null)
   const chatMessages = ref([{ role: 'bot', text: 'Bonjour ! Comment puis-je vous aider ?' }])
   const cartItemCount = ref(0) 
-  const idGoogleClient = ref (null)
+  const idGoogleClient = ref(null) // De retour
   
-  // Correction ici : Initialisation du tracker d'activité
   const activityLog = ref([]) 
 
   // --- ACTIONS ---
@@ -21,13 +20,14 @@ export const useAppStore = defineStore('app', () => {
 
   function login(userData, googleId = null) {
     isConnected.value = true
-    user.value = userData
   
     if (googleId) {
+      userData.googleId = googleId
       idGoogleClient.value = googleId
-      localStorage.setItem('googleId', googleId)
+      localStorage.setItem('googleId', googleId) // Sauvegarde isolée
     }
-  
+    
+    user.value = userData
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
@@ -36,8 +36,11 @@ export const useAppStore = defineStore('app', () => {
     user.value = null
     cartItemCount.value = 0 
     magasinChoisi.value = null 
+    idGoogleClient.value = null // On clean l'ID
+    
     localStorage.removeItem('user')
     localStorage.removeItem('selectedStore') 
+    localStorage.removeItem('googleId') // On supprime l'ID isolé
   }
 
   function addChatMessage(message) {
@@ -61,12 +64,12 @@ export const useAppStore = defineStore('app', () => {
       chatMessages.value = JSON.parse(savedChat)
     }
 
-    const googleId = localStorage.getItem('googleId')
-    if (googleId) {
-      idGoogleClient.value = googleId
+    // Chargement de l'ID Google isolé
+    const savedGoogleId = localStorage.getItem('googleId')
+    if (savedGoogleId) {
+      idGoogleClient.value = savedGoogleId
     }
 
-    // Récupération des logs d'activité pour éviter l'erreur undefined
     const savedLog = localStorage.getItem('cube_activity_log')
     if (savedLog) {
       try {
@@ -106,7 +109,7 @@ export const useAppStore = defineStore('app', () => {
     cartItemCount,
     chatMessages,
     activityLog, 
-    idGoogleClient,
+    idGoogleClient, 
     setMagasin, 
     login, 
     logout, 

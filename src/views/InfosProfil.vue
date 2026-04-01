@@ -2,9 +2,12 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useAppStore } from '../stores/useStore'
 
-const isGoogleUser = computed(() => !!appStore.user?.googleId)
-
 const appStore = useAppStore()
+
+// On regarde la variable dédiée du store
+const isGoogleUser = computed(() => {
+  return !!appStore.idGoogleClient
+})
 
 const loading = ref(false)
 const feedback = ref('')
@@ -14,9 +17,6 @@ const newPassword = ref('')
 const confirmPassword = ref('')
 const showPassword = ref(false)
 
-const googleId = ref(null)
-
-// Objet pour stocker les erreurs de validation
 const errors = reactive({})
 
 const form = reactive({
@@ -36,11 +36,8 @@ onMounted(() => {
     form.dateNaissance = appStore.user.dateNaissance ? appStore.user.dateNaissance.split('T')[0] : ''
     form.tel = appStore.user.tel || ''
     form.doubleAuth = !!appStore.user.doubleAuth 
-    googleId.value = appStore.user.googleId || null
   }
 })
-
-console.log(googleId.value);
 
 // --- LOGIQUE DE VALIDATION ---
 const validateProfile = () => {
@@ -58,7 +55,7 @@ const validateProfile = () => {
     isValid = false
   }
 
-  // Validation Date de Naissance (18 ans min)
+  // Validation Date de Naissance
   if (!form.dateNaissance) {
     errors.dateNaissance = "La date de naissance est requise."
     isValid = false
@@ -76,31 +73,34 @@ const validateProfile = () => {
     }
   }
 
-  // Validation Email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!form.emailClient || !emailRegex.test(form.emailClient)) {
-    errors.emailClient = "Veuillez entrer une adresse email valide."
-    isValid = false
+  // Validation Email UNIQUEMENT si c'est pas Google
+  if (!isGoogleUser.value) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!form.emailClient || !emailRegex.test(form.emailClient)) {
+      errors.emailClient = "Veuillez entrer une adresse email valide."
+      isValid = false
+    }
   }
 
-  // Validation Téléphone (si rempli)
+  // Validation Téléphone
   const phoneRegex = /^(0|\+33|0033)[1-9]([-. ]?[0-9]{2}){4}$/
   if (form.tel && form.tel.trim() !== '' && !phoneRegex.test(form.tel.trim())) {
     errors.tel = "Format invalide (ex: 06 12 34 56 78)."
     isValid = false
   }
 
-  if (newPassword.value) {
-  if (newPassword.value.length < 5) {
-    errors.newPassword = "5 caractères minimum"
-    isValid = false
-  }
+  // Validation MDP UNIQUEMENT si c'est pas Google
+  if (!isGoogleUser.value && newPassword.value) {
+    if (newPassword.value.length < 5) {
+      errors.newPassword = "5 caractères minimum"
+      isValid = false
+    }
 
-  if (newPassword.value !== confirmPassword.value) {
-    errors.confirmPassword = "Les mots de passe ne correspondent pas."
-    isValid = false
+    if (newPassword.value !== confirmPassword.value) {
+      errors.confirmPassword = "Les mots de passe ne correspondent pas."
+      isValid = false
+    }
   }
-}
 
   return isValid
 }
@@ -122,14 +122,14 @@ const handleUpdate = async () => {
       ...appStore.user,
       nomClient: form.nomClient.trim().toUpperCase(),
       prenomClient: form.prenomClient.trim(),
-      emailClient: form.emailClient.trim().toLowerCase(),
+      emailClient: isGoogleUser.value ? appStore.user.emailClient : form.emailClient.trim().toLowerCase(),
       dateNaissance: form.dateNaissance,
       tel: String(form.tel || "").replace(/\s/g, ""),
       doubleAuth: form.doubleAuth,
-      googleId: googleId.value
+      googleId: appStore.idGoogleClient // On tape dans la variable du store !
     }
 
-    if (newPassword.value) {
+    if (!isGoogleUser.value && newPassword.value) {
       updatedUser.mdp = newPassword.value
     }
 
