@@ -351,7 +351,7 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
           {{ appStore.magasinChoisi ? appStore.magasinChoisi.nomAffiche : 'CHOISIR UN MAGASIN' }} <Store :size="18" :stroke-width="2" />
         </a>
 
-        <router-link to="/connexion" class="icon-btn profile-btn">
+        <router-link :to="appStore.user ? '/profil' : '/connexion'" class="icon-btn profile-btn">
           <span v-if="appStore.user" class="user-name">
             {{ appStore.user.prenomClient }} {{ appStore.user.nomClient }}
           </span>

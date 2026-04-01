@@ -88,7 +88,7 @@ onUnmounted(() => {
     <ChatBot />
   </main>
 
-  <Footer />
+  <Footer v-if="!['login', 'creer-compte', 'connexion-choice'].includes($route.name)" />
 
   <CookieConsent />
 </template>

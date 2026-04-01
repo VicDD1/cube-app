@@ -224,7 +224,14 @@ const form = reactive({
 const handleGoogleSuccess = async (response) => {
   const { credential } = response;
   const userData = decodeCredential(credential);
-  googleIdValue.value = userData.sub;  // Décode Nom, Prénom, Email
+  const extractedId = userData.id || userData.sub;
+
+  if (extractedId) {
+    googleIdValue.value = extractedId;
+    console.log("ID Google capturé avec succès :", googleIdValue.value);
+  } else {
+    console.error("Impossible de trouver l'ID. Voici les données complètes :", userData);
+  }
 
   loading.value = true;
   isError.value = false;
@@ -475,6 +482,29 @@ const confirmAndCreateAccount = async () => {
   transition: color 0.2s;
 }
 
+.checkbox-container {
+  display: flex;
+  flex-direction: row; /* Aligne horizontalement */
+  align-items: center; /* Centre verticalement */
+  gap: 10px; /* Espace entre la case et le texte */
+  margin-top: 10px;
+  margin-bottom: 20px;
+}
+
+.checkbox-container input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.checkbox-container label {
+  display: inline-block;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
 .google-divider {
   display: flex;
   align-items: center;
@@ -503,15 +533,20 @@ const confirmAndCreateAccount = async () => {
 .toggle-btn:hover {
   color: #000;
 }
+
 .connexion-page {
-  padding-top: 140px; 
-  padding-bottom: 80px;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: center; 
+  padding-top: 100px; 
+  padding-bottom: 20px; 
+  
   background-color: #f4f4f4;
   font-family: 'CubeFont', sans-serif;
+  box-sizing: border-box;
+  overflow: hidden; 
 }
 
 .auth-card {
@@ -521,9 +556,11 @@ const confirmAndCreateAccount = async () => {
   padding: 40px;
   box-shadow: 0 20px 50px rgba(0,0,0,0.1);
   border-top: 5px solid #000;
+  box-sizing: border-box; 
+  max-height: 100%; 
+  overflow-y: auto; 
 }
 
-/* NOUVEAU : Style pour les suggestions d'adresse */
 .address-suggestions {
   position: absolute;
   z-index: 1000;

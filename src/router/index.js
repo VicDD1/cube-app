@@ -18,7 +18,8 @@ const router = createRouter({
         {
             path: '/creer-compte',
             name: 'creer-compte',
-            component: () => import('../views/CreateAcomptView.vue')
+            component: () => import('../views/CreateAcomptView.vue'),
+            meta: { requiresGuest: true }
         },
         {
             path: '/velos-electriques',
@@ -47,12 +48,14 @@ const router = createRouter({
         {
             path: '/login', 
             name: 'login',
-            component: () => import('../views/ConnexionView.vue')  
+            component: () => import('../views/ConnexionView.vue')  ,
+            meta: { requiresGuest: true }
         },
         {
             path: '/connexion',
             name: 'connexion-choice',
-            component: () => import('../views/AuthChoiceView.vue')
+            component: () => import('../views/AuthChoiceView.vue'),
+            meta: { requiresGuest: true }
         },
         {
             path: '/panier',
@@ -117,6 +120,7 @@ const router = createRouter({
         {
             path: '/profil',
             component: () => import('../views/ProfileView.vue'), 
+            meta: { requiresAuth: true }, 
             children: [
                 { path: '', name: 'dashboard', component: () => import('../views/ProfileDashBoard.vue') },
                 { path: 'infos', name: 'profile-infos', component: () => import('../views/InfosProfil.vue') },
@@ -144,14 +148,20 @@ router.beforeEach((to, from, next) => {
         store.loadPersistedStore()
     }
 
-    if (to.meta.requiresAuth) {
-        if (!store.isConnected) {
-            return next('/connexion') 
-        }
-        if (to.meta.requiresRole) {
-            if (store.user?.role !== to.meta.requiresRole) {
-                return next('/') 
-            }
+    if (to.meta.requiresAuth && !store.isConnected) {
+        return next('/connexion') 
+    }
+
+    if (to.meta.requiresGuest && store.isConnected) {
+        return next('/profil') 
+    }
+
+    if (to.meta.requiresAuth && to.meta.requiresRole) {
+        const userRole = (store.user?.role || store.user?.Role || '').toLowerCase();
+        const expectedRole = to.meta.requiresRole.toLowerCase();
+
+        if (userRole !== expectedRole) {
+            return next('/') 
         }
     }
     

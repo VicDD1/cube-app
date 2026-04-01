@@ -32,20 +32,24 @@
 
 <style scoped>
 .auth-choice-page {
-  padding-top: 140px;
-  padding-bottom: 80px;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
+  padding-top: 100px;
   background-color: #f4f4f4;
   font-family: 'CubeFont', sans-serif;
+  box-sizing: border-box;
+  overflow: hidden; 
 }
 
 .choice-container {
   width: 90%;
   max-width: 900px;
   text-align: center;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
 }
 
 .choice-header h1 {
