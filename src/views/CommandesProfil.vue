@@ -78,7 +78,7 @@ const handleDownload = async (cmd) => {
       <div class="separator"></div>
     </div>
 
-    <div v-if="loading" class="loader-state">Chargement de vos commandes...</div>
+    <div v-if="loading" class="loader-state">CHARGEMENT DE VOS COMMANDES...</div>
     <div v-else-if="error" class="error-state">{{ error }}</div>
 
     <div v-else-if="commandes.length === 0" class="empty-state">
@@ -91,8 +91,8 @@ const handleDownload = async (cmd) => {
         
         <div class="order-header">
           <div class="order-id">
-            <span>N° {{ String(cmd.idCommande).padStart(6, '0') }}</span>
-            <span class="order-date">Passée le {{ formatDate(cmd.dateCommande) }}</span>
+            <span>COMMANDE N° {{ String(cmd.idCommande).padStart(6, '0') }}</span>
+            <span class="order-date">PASSÉE LE {{ formatDate(cmd.dateCommande) }}</span>
           </div>
           <div :class="['order-badge', getStatusDisplay(cmd.statutLivraison).class]">
             {{ getStatusDisplay(cmd.statutLivraison).text }}
@@ -107,7 +107,7 @@ const handleDownload = async (cmd) => {
           
           <div class="order-actions">
             <button class="btn-action pdf" @click="handleDownload(cmd)" :disabled="isGeneratingPdf">
-              📥 FACTURE
+              <span class="icon">📥</span> FACTURE
             </button>
             <router-link :to="{ name: 'order-info', params: { id: cmd.idCommande } }" class="btn-action detail">
               VOIR DÉTAILS »
@@ -122,75 +122,187 @@ const handleDownload = async (cmd) => {
 </template>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,800;0,900;1,800;1,900&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
 .commandes-container {
   background: #fff;
-  padding: 40px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
-  animation: fadeIn 0.4s ease-out;
-  max-width: 900px;
-  margin: 0 auto;
+  padding: 50px;
+  max-width: 1000px;
+  margin: 40px auto;
+  border-top: 6px solid #000;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.05);
+  font-family: 'Inter', sans-serif;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.header-section h2 {
+  font-weight: 900;
+  font-style: italic;
+  font-size: 2.2rem;
+  margin: 0 0 5px 0;
+  letter-spacing: -1px;
+  color: #000;
+}
+.header-section p {
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+}
+.separator {
+  width: 80px;
+  height: 5px;
+  background: #cc0000;
+  margin-bottom: 40px;
 }
 
-.header-section h2 { font-family: 'Inter', sans-serif; font-weight: 900; font-style: italic; font-size: 1.8rem; margin: 0 0 10px 0; }
-.header-section p { color: #888; font-size: 0.9rem; margin-bottom: 20px; }
-.separator { width: 50px; height: 4px; background: #000; margin-bottom: 40px; }
-
-.loader-state, .error-state, .empty-state { text-align: center; padding: 60px 20px; font-weight: 800; color: #888; }
+.loader-state, .error-state, .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 1.2rem;
+  color: #888;
+}
 .error-state { color: #cc0000; }
 
 .btn-shop {
-  display: inline-block; margin-top: 20px; background: #000; color: #fff; padding: 15px 30px; text-decoration: none; font-weight: 900; font-style: italic; clip-path: polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%); transition: background 0.2s;
+  display: inline-block;
+  margin-top: 20px;
+  background: #000;
+  color: #fff;
+  padding: 15px 30px;
+  text-decoration: none;
+  font-weight: 900;
+  font-style: italic;
+  clip-path: polygon(6% 0%, 100% 0%, 94% 100%, 0% 100%);
+  transition: background 0.3s, transform 0.2s;
 }
-.btn-shop:hover { background: #00a8e8; }
+.btn-shop:hover {
+  background: #cc0000;
+  transform: translateY(-2px);
+}
 
 .orders-list { display: flex; flex-direction: column; gap: 20px; }
 
 .order-card {
-  border: 1px solid #eaeaea;
-  border-radius: 8px;
+  border: 1px solid #eee;
+  border-left: 4px solid transparent;
   padding: 25px;
-  background: #fafafa;
-  transition: all 0.2s;
+  background: #fdfdfd;
+  transition: all 0.2s ease-in-out;
 }
-.order-card:hover { border-color: #ccc; background: #fff; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+.order-card:hover {
+  border-left-color: #cc0000;
+  background: #fff;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  transform: translateX(5px);
+}
 
 .order-header {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  border-bottom: 1px solid #eaeaea; padding-bottom: 15px; margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
 }
 
-.order-id span { display: block; font-weight: 900; font-size: 1.2rem; font-style: italic; color: #000; }
-.order-id .order-date { font-size: 0.8rem; font-weight: 600; font-style: normal; color: #666; margin-top: 4px; }
+.order-id span {
+  display: block;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 1.4rem;
+  color: #000;
+  letter-spacing: -0.5px;
+}
+.order-id .order-date {
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-style: normal;
+  color: #888;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
 
-.order-badge { font-size: 0.7rem; font-weight: 900; padding: 6px 12px; border-radius: 4px; letter-spacing: 0.5px; }
-.status-prepare { background: #fff3cd; color: #856404; }
-.status-shipped { background: #d1ecf1; color: #0c5460; } 
-.status-delivered { background: #d4edda; color: #155724; } 
-.status-cancelled { background: #f8d7da; color: #721c24; } 
-.status-default { background: #e2e3e5; color: #383d41; } 
+.order-badge {
+  font-size: 0.75rem;
+  font-weight: 900;
+  font-style: italic;
+  padding: 8px 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.status-prepare { background: #eee; color: #333; }
+.status-shipped { background: #111; color: #fff; } 
+.status-delivered { background: #00a8e8; color: #fff; }
+.status-cancelled { background: #cc0000; color: #fff; } 
+.status-default { background: #f4f4f4; color: #888; } 
 
 .order-body { display: flex; justify-content: space-between; align-items: center; }
 
-.info-label { display: block; font-size: 0.75rem; font-weight: 800; color: #888; margin-bottom: 4px; }
-.info-value.price { font-size: 1.4rem; font-weight: 900; font-style: italic; color: #000; }
-
-.order-actions { display: flex; gap: 15px; }
-.btn-action {
-  padding: 10px 20px; font-weight: 900; font-style: italic; font-size: 0.85rem; border: none; cursor: pointer; text-decoration: none; border-radius: 4px; transition: 0.2s;
+.info-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #888;
+  letter-spacing: 1px;
+  margin-bottom: 5px;
 }
-.btn-action.pdf { background: #eee; color: #333; }
-.btn-action.pdf:hover { background: #ddd; }
-.btn-action.detail { background: #000; color: #fff; }
-.btn-action.detail:hover { background: #00a8e8; }
+.info-value.price {
+  font-size: 1.6rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #cc0000;
+}
+
+.order-actions { display: flex; gap: 15px; align-items: center; }
+
+.btn-action {
+  padding: 12px 20px;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-action.pdf {
+  background: #f4f4f4;
+  color: #333;
+  border-bottom: 2px solid transparent;
+}
+.btn-action.pdf:hover {
+  background: #e0e0e0;
+  border-bottom-color: #cc0000;
+}
+
+.btn-action.detail {
+  background: #000;
+  color: #fff;
+  clip-path: polygon(6% 0%, 100% 0%, 94% 100%, 0% 100%);
+}
+.btn-action.detail:hover {
+  background: #cc0000;
+  transform: translateY(-2px);
+}
 
 @media (max-width: 600px) {
+  .commandes-container { padding: 30px 20px; }
+  .order-header { flex-direction: column; gap: 15px; }
   .order-body { flex-direction: column; align-items: flex-start; gap: 20px; }
   .order-actions { width: 100%; flex-direction: column; }
-  .btn-action { text-align: center; }
+  .btn-action { width: 100%; }
 }
 </style>
