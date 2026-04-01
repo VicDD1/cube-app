@@ -68,7 +68,7 @@
 <script setup>
 import { ref } from 'vue';
 
-// --- État réactif ---
+
 const userHeight = ref(null);
 const userInseam = ref(null);
 
@@ -76,9 +76,9 @@ const showResult = ref(false);
 const isError = ref(false);
 const resultText = ref('');
 
-// --- Logique de calcul ---
+
 const calculateSize = () => {
-  // Réinitialiser l'état
+  
   showResult.value = false;
   isError.value = false;
   resultText.value = '';
@@ -88,7 +88,7 @@ const calculateSize = () => {
 
   if (!h || !i) return;
 
-  // Validations
+  
   if (h < 120 || h > 230) {
     displayError("La taille semble incorrecte.");
     return;
@@ -99,7 +99,7 @@ const calculateSize = () => {
     return;
   }
 
-  // Calcul (reproduction de la logique d'origine)
+  
   const sizeInch = (i * 0.226).toFixed(1);
   
   let label = "M";
@@ -113,7 +113,7 @@ const calculateSize = () => {
   showResult.value = true;
 };
 
-// --- Helper pour afficher les erreurs ---
+
 const displayError = (msg) => {
   isError.value = true;
   resultText.value = msg;
@@ -122,10 +122,10 @@ const displayError = (msg) => {
 </script>
 
 <style scoped>
-/* Scoped pour éviter que ces styles n'affectent le reste de l'app */
+
 @font-face {
   font-family: 'Damas Font';
-  src: url('../font/font.woff2'); /* Assure-toi que le chemin est correct dans ton projet Vue */
+  src: url('../font/font.woff2'); 
 }
 
 .cube-calc-component {

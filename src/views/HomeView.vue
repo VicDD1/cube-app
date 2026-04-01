@@ -5,7 +5,7 @@ import {
   Mountain, Map, Building, Zap, Activity, Wind, Loader2, RotateCcw
 } from 'lucide-vue-next'
 
-// --- IMPORT DES ASSETS LOCAUX ---
+
 import bg1 from '@/assets/images/1.webp'
 import bg2 from '@/assets/images/2.webp'
 import bg3 from '@/assets/images/3.webp'
@@ -13,9 +13,9 @@ import vtt from '@/assets/images/velo_vtt.webp'
 import route from '@/assets/images/velo_route.webp'
 import electrique from '@/assets/images/velo_electrique.webp'
 
-// ==========================================
-// 1. LOGIQUE SLIDER HERO
-// ==========================================
+
+
+
 const currentIndex = ref(0)
 let timer = null
 
@@ -53,18 +53,18 @@ const goToSlide = (index) => { currentIndex.value = index }
 onMounted(() => { timer = setInterval(next, 6000) })
 onUnmounted(() => { clearInterval(timer) })
 
-// ==========================================
-// 2. CATEGORIES
-// ==========================================
+
+
+
 const categories = [
   { id: 1, titre: 'VTT & ENDURO', img: vtt, link: '/velos?filter=vtt' },
   { id: 2, titre: 'ROUTE & GRAVEL', img: route, link: '/velos?filter=route' },
   { id: 3, titre: 'E-BIKE HYBRID', img: electrique, link: '/velos-electriques' }
 ]
 
-// ==========================================
-// 3. LOGIQUE BIKE MATCHMAKER (QUIZ)
-// ==========================================
+
+
+
 const step = ref(0)
 const isCalculating = ref(false)
 const answers = ref({ terrain: null, objectif: null, elec: null })
@@ -311,7 +311,7 @@ const resetQuiz = () => {
 </template>
 
 <style scoped>
-/* --- CONFIGURATION GLOBALE --- */
+
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Inter:wght@400;600;700;800;900&display=swap');
 
 .main-container {

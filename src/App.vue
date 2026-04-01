@@ -14,12 +14,12 @@ const appStore = useAppStore()
 const showCookies = ref(false)
 const showChatbot = ref(false)
 
-// --- TRACKER D'ACTIVITÉ INVISIBLE ---
+
 let timerInterval = null
 const currentSessionIndex = ref(null)
 
 
-// Démarre un nouveau chronomètre pour la page actuelle
+
 const startTracking = (path) => {
   const newEntry = {
     path: path,
@@ -30,7 +30,7 @@ const startTracking = (path) => {
   appStore.activityLog.push(newEntry)
   currentSessionIndex.value = appStore.activityLog.length - 1
 
-  // On incrémente le compteur chaque seconde
+  
   timerInterval = setInterval(() => {
     if (currentSessionIndex.value !== null) {
       appStore.activityLog[currentSessionIndex.value].timeSpentInSeconds++
@@ -38,7 +38,7 @@ const startTracking = (path) => {
   }, 1000)
 }
 
-// Arrête le chronomètre
+
 const stopTracking = () => {
   if (timerInterval) {
     clearInterval(timerInterval)
@@ -46,11 +46,11 @@ const stopTracking = () => {
   }
 }
 
-// À chaque changement d'URL (changement de page via Vue Router)
+
 watch(
   () => route.path,
   (newPath) => {
-    // 1. On vérifie d'abord si on a le droit de traquer (consentement)
+    
     const savedCookies = localStorage.getItem('cube_cookie_consent')
     let hasConsented = false
     
@@ -63,40 +63,40 @@ watch(
       }
     }
 
-    // 2. Si l'utilisateur est d'accord, on lance la machine
+    
     if (hasConsented) {
-      stopTracking() // On arrête le chrono de l'ancienne page
-      startTracking(newPath) // On démarre le chrono de la nouvelle page
+      stopTracking() 
+      startTracking(newPath) 
       
-      // On sauvegarde en temps réel dans le navigateur
+      
       localStorage.setItem('cube_activity_log', JSON.stringify(appStore.activityLog))
     } else {
-      // S'il a refusé, on s'assure que rien ne tourne !
+      
       stopTracking()
     }
   },
-  { immediate: true } // Se déclenche aussi au premier chargement de l'application
+  { immediate: true } 
 )
 
 onMounted(() => {
-  // On vérifie si l'utilisateur a déjà répondu aux cookies
+  
   const hasAnswered = localStorage.getItem('cube_cookie_consent')
   
   if (!hasAnswered) {
-    // S'il n'a pas répondu, on attend 3 secondes avant d'afficher la popup.
-    // Cela permet aux robots de test de scanner une page "propre" sans popup.
+    
+    
     setTimeout(() => {
       showCookies.value = true
       showChatbot.value = true
     }, 3000)
   } else {
-    // S'il a déjà répondu, on charge le composant normalement (il restera caché)
+    
     showCookies.value = true
     showChatbot.value = true
   }
 })
 
-// Nettoyage de sécurité si on ferme l'app
+
 onUnmounted(() => {
   stopTracking()
 })
@@ -116,13 +116,13 @@ onUnmounted(() => {
 </template>
 
 <style>
-/* Style global pour enlever les marges blanches par défaut du navigateur */
+
 body {
   margin: 0;
   padding: 0;
 }
 
-/* Flexbox pour forcer le footer à rester tout en bas */
+
 #app {
   display: flex;
   flex-direction: column;

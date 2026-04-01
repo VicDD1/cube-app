@@ -71,8 +71,8 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 
-// Variables d'état
-const categoryType = ref('sub'); // 'main' ou 'sub' (par défaut on propose sous-catégorie)
+
+const categoryType = ref('sub'); 
 const parentCategories = ref([]);
 const selectedParent = ref('');
 const newCategoryName = ref('');
@@ -84,7 +84,7 @@ const goBack = () => {
   router.push('/espace-commercial');
 };
 
-// Fonction pour charger les catégories principales depuis l'API
+
 const fetchMainCategories = async () => {
   try {
     const res = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/CategorieVelo/GetMain');
@@ -100,7 +100,7 @@ const fetchMainCategories = async () => {
   }
 };
 
-// Au chargement de la page
+
 onMounted(() => {
   fetchMainCategories();
 });
@@ -111,8 +111,8 @@ const handleSubmit = async () => {
   feedback.value = "";
   isError.value = false;
 
-  // Création du payload selon le type de catégorie
-  // Si c'est une catégorie principale, on envoie null pour le parent
+  
+  
   const payload = {
     nomCategorie: newCategoryName.value.trim(),
     catIdCategorie: categoryType.value === 'main' ? null : parseInt(selectedParent.value)
@@ -136,15 +136,15 @@ const handleSubmit = async () => {
       ? "CATÉGORIE PRINCIPALE AJOUTÉE AVEC SUCCÈS !" 
       : "SOUS-CATÉGORIE AJOUTÉE AVEC SUCCÈS !";
     
-    // On vide le champ texte
+    
     newCategoryName.value = '';
     
-    // Si on vient d'ajouter une catégorie principale, on met à jour la liste déroulante !
+    
     if (categoryType.value === 'main') {
       await fetchMainCategories();
     }
 
-    // Fait disparaître le message après 3 secondes
+    
     setTimeout(() => {
       if (!isError.value) feedback.value = "";
     }, 3000);
@@ -224,7 +224,7 @@ const handleSubmit = async () => {
   margin-bottom: 18px;
 }
 
-/* --- Styles pour les boutons radio --- */
+
 .radio-container {
   display: flex;
   gap: 20px;
@@ -245,10 +245,10 @@ const handleSubmit = async () => {
 .radio-label input[type="radio"] {
   width: auto;
   margin-right: 8px;
-  accent-color: #00a8e8; /* Donne la couleur bleue Cube au bouton radio cliqué */
+  accent-color: #00a8e8; 
   cursor: pointer;
 }
-/* ----------------------------------- */
+
 
 label {
   display: block;

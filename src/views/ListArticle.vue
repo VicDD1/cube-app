@@ -3,7 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import CardArticle from '../components/CardArticle.vue'
 
-// Importation des images
+
 import imgVeloElec from '../assets/images/velo_electrique.webp'
 import imgVeloMusc from '../assets/images/velo_route.webp'
 import imgAccessoires from '../assets/images/accessoires-de-velo.webp'
@@ -13,7 +13,7 @@ const route = useRoute()
 const allData = ref([]) 
 const loading = ref(true)
 
-// --- Image de la bannière dynamique ---
+
 const heroImage = computed(() => {
   if (props.typeArticle === 'Accessoires') return imgAccessoires
   
@@ -25,7 +25,7 @@ const heroImage = computed(() => {
   return imgVeloMusc
 })
 
-// --- Navigation ---
+
 const shopContainer = ref(null) 
 const scrollToShop = () => {
   if (shopContainer.value) {
@@ -33,24 +33,24 @@ const scrollToShop = () => {
   }
 }
 
-// --- États des Filtres ---
+
 const maxPrice = ref(8000)
 const filterPrice = ref(8000)
 const selectedColors = ref([])
 const selectedCategories = ref([])
 const searchQuery = ref('')
 const categoriesMap = ref(new Map())
-const allRawCategories = ref([]) // Pour la recherche des sous-catégories
+const allRawCategories = ref([]) 
 
-// --- Gestion du Voir + / Voir - pour les couleurs ---
+
 const showAllColors = ref(false)
 const COLORS_LIMIT = 5
 
-// --- Pagination ---
+
 const currentPage = ref(1)
 const itemsPerPage = 15
 
-// --- Récupération des catégories ---
+
 const fetchCategories = async () => {
   try {
     const isAccessoire = props.typeArticle === 'Accessoires'
@@ -85,7 +85,7 @@ const fetchCategories = async () => {
   }
 }
 
-// --- Récupération des articles ---
+
 const fetchData = async () => {
   loading.value = true
   try {
@@ -138,7 +138,7 @@ const fetchData = async () => {
   }
 }
 
-// --- Computed : Catégories disponibles ---
+
 const availableCategories = computed(() => {
   if (!allData.value || categoriesMap.value.size === 0) return []
   const catsFound = new Map()
@@ -156,7 +156,7 @@ const availableCategories = computed(() => {
   return Array.from(catsFound.values()).sort((a, b) => a.nom.localeCompare(b.nom))
 })
 
-// --- Computed : Couleurs disponibles ---
+
 const availableColors = computed(() => {
   if (!allData.value) return []
   const colorsMap = new Map()
@@ -179,7 +179,7 @@ const displayedColors = computed(() => {
   return showAllColors.value ? availableColors.value : availableColors.value.slice(0, COLORS_LIMIT)
 })
 
-// --- Reset global ---
+
 const resetFilters = () => {
   filterPrice.value = maxPrice.value
   selectedColors.value = []
@@ -189,7 +189,7 @@ const resetFilters = () => {
   currentPage.value = 1
 }
 
-// --- Synchronisation de l'URL avec les cases de la sidebar ---
+
 const syncFiltersFromUrl = () => {
   filterPrice.value = maxPrice.value
   selectedColors.value = []
@@ -205,7 +205,7 @@ const syncFiltersFromUrl = () => {
   }
 }
 
-// --- Computed : Filtrage Dynamique UNIFIÉ (URL + Sidebar) ---
+
 const modelesAffichés = computed(() => {
   if (!allData.value || !Array.isArray(allData.value)) return []
 
@@ -251,7 +251,7 @@ const modelesAffichés = computed(() => {
   })
 })
 
-// --- Pagination Computed & Methods ---
+
 const totalPages = computed(() => Math.ceil(modelesAffichés.value.length / itemsPerPage))
 
 const paginatedModeles = computed(() => {
@@ -267,18 +267,18 @@ const goToPage = (page) => {
   }
 }
 
-// Retourner à la page 1 si les résultats filtrés changent
+
 watch(modelesAffichés, () => {
   currentPage.value = 1
 })
 
-// --- Computed : Recommandations ---
+
 const recommandations = computed(() => {
   if (!allData.value || allData.value.length === 0) return []
   return allData.value.slice(0, 4)
 })
 
-// --- Observers ---
+
 watch(() => props.title, fetchData)
 
 watch(() => props.typeArticle, async () => {
@@ -480,7 +480,7 @@ onMounted(async () => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 
-/* --- BANNIÈRE HERO --- */
+
 .page-wrapper { width: 100%; }
 .hero-banner {
   position: relative; width: 100%; height: 100vh;
@@ -506,11 +506,11 @@ onMounted(async () => {
 }
 .btn-hero:hover { background-color: #00A3E0; color: #ffffff; transform: translateY(-2px); }
 
-/* --- LAYOUT GLOBAL --- */
+
 .shop-layout-container { max-width: 1700px; margin: 60px auto 0; padding: 0 40px; font-family: 'Inter', sans-serif; }
 .shop-layout { display: flex; margin-top: 50px; gap: 80px; align-items: flex-start; }
 
-/* --- HEADER RECHERCHE --- */
+
 .list-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 25px; }
 .header-left, .header-right { flex: 0 0 250px; }
 .header-right { text-align: right; }
@@ -521,7 +521,7 @@ onMounted(async () => {
 .count { font-weight: 700; text-transform: uppercase; font-size: 0.85rem; color: #555; margin: 0; }
 .clear-search { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #555; }
 
-/* --- SIDEBAR & FILTRES --- */
+
 .sidebar { 
   width: 310px; flex-shrink: 0; position: relative; 
   background-color: #f0f0f0; padding: 40px 30px; border-radius: 25px; 
@@ -535,18 +535,18 @@ onMounted(async () => {
 .filter-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 .section-title { font-size: 0.85rem; font-weight: 900; text-transform: uppercase; font-style: italic; margin-bottom: 20px; margin-top: 0; }
 
-/* Catégories */
+
 .category-item { display: flex; align-items: center; margin-bottom: 12px; }
 .custom-checkbox { margin-right: 12px; accent-color: #000; width: 16px; height: 16px; cursor: pointer; }
 .checkbox-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #555; cursor: pointer; transition: color 0.2s ease; }
 .custom-checkbox:checked + .checkbox-label { color: #000; }
 
-/* Budget */
+
 .price-slider { -webkit-appearance: none; width: 100%; height: 4px; background: #e0e0e0; border-radius: 2px; outline: none; }
 .price-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #000; border: 3px solid #00A3E0; border-radius: 50%; cursor: pointer; }
 .price-value { margin-top: 15px; font-weight: 900; font-size: 1.3rem; font-style: italic; }
 
-/* Couleurs */
+
 .colors-list { display: flex; flex-direction: column; gap: 10px; }
 .color-item { position: relative; }
 .color-label { display: flex; align-items: center; cursor: pointer; padding: 4px 0; }
@@ -563,7 +563,7 @@ onMounted(async () => {
 }
 .btn-toggle-colors:hover { background-color: #0089bd; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 163, 224, 0.3); }
 
-/* --- ACCESSIBILITÉ --- */
+
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
 fieldset { border: none; margin: 0; padding: 0; }
 legend { padding: 0; width: 100%; }
@@ -571,7 +571,7 @@ legend { padding: 0; width: 100%; }
   outline: 3px solid #00A3E0; outline-offset: 4px; border-radius: 4px;
 }
 
-/* --- CONTENU & PAGINATION --- */
+
 .main-content { flex-grow: 1; display: flex; flex-direction: column; }
 .products-container { display: flex; flex-direction: column; min-height: 800px; justify-content: space-between; }
 .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px; margin-bottom: 60px; }
@@ -591,7 +591,7 @@ legend { padding: 0; width: 100%; }
 .number-btn { width: 40px; padding: 10px 0; text-align: center; }
 .nav-btn { text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
 
-/* --- SECTION AUCUN RÉSULTAT --- */
+
 .no-results-container { text-align: center; padding: 40px 0; }
 .empty-message { margin-bottom: 80px; background: #f9f9f9; padding: 40px; border-radius: 20px; }
 .empty-message h2 { font-weight: 900; text-transform: uppercase; font-style: italic; font-size: 1.5rem; margin-bottom: 10px; margin-top: 0; }

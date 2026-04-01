@@ -4,7 +4,7 @@ import { ref, onMounted } from 'vue'
 const categories = ref([])
 const isLoaded = ref(false)
 
-// On va chercher toutes les catégories de vélos dans ton API
+
 const fetchCategories = async () => {
   try {
     const res = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/CategorieVelo/GetCategories')
@@ -12,7 +12,7 @@ const fetchCategories = async () => {
 
     const flatList = []
     
-    // Fonction pour tout mettre à plat (parents et enfants)
+    
     const extractCats = (cats) => {
       cats.forEach(c => {
         if (c && c.idCategorie && c.nomCategorie) {
@@ -35,7 +35,7 @@ const fetchCategories = async () => {
   }
 }
 
-// Fonction magique pour trouver l'ID d'après le nom exact
+
 const getId = (nomCherche) => {
   const cat = categories.value.find(c => c.nom === nomCherche.toLowerCase())
   return cat ? cat.id : null

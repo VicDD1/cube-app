@@ -12,7 +12,7 @@ const appStore = useAppStore()
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 const idClient = computed(() => appStore.user?.idClient || null)
 
-// --- RÉFÉRENCES RÉACTIVES ---
+
 const reference = computed(() => route.params.id?.trim())
 const article = ref(null)
 const caracteristiques = ref([])
@@ -20,10 +20,10 @@ const inventaire = ref([])
 const variantesCouleurs = ref([])
 const variantesBatteries = ref([])
 const articlesSimilaires = ref([])
-const accessoiresCompatibles = ref([]) // NOUVEAU: Accessoires compatibles
+const accessoiresCompatibles = ref([]) 
 const batterieInfo = ref(null)
 
-// Références DOM pour les carrousels
+
 const similarContainer = ref(null)
 const compatContainer = ref(null)
 
@@ -38,7 +38,7 @@ const listeTailles = ref([])
 const selectedTaille = ref(null)
 const storeLocatorRef = ref(null)
 
-// --- DISPONIBILITÉ ET AFFICHAGE ---
+
 const isVelo = computed(() => reference.value?.length === 6)
 const folder = computed(() => isVelo.value ? 'VELOS' : 'ACCESSOIRES')
 
@@ -74,7 +74,7 @@ const fichesTechniquesGroupees = computed(() => {
   return groupes
 })
 
-// --- ACTIONS & MÉTHODES ---
+
 const selectTaille = (item) => { 
   selectedTaille.value = item 
   sizeError.value = false 
@@ -196,7 +196,7 @@ const addToCart = async () => {
   }
 };
 
-// --- GALERIE ET CARROUSEL ---
+
 const getLocalImage = (itemRef, index) => {
   const itemFolder = itemRef?.trim().length === 6 ? 'VELOS' : 'ACCESSOIRES'
   try {
@@ -220,13 +220,13 @@ const closeZoom = () => {
 
 const scrollCarousel = (containerElem, direction) => {
   if (containerElem) {
-    // 250px (largeur carte) + 20px (gap)
+    
     const scrollAmount = 270;
     containerElem.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
   }
 }
 
-// --- GÉOMÉTRIE & DONNÉES ---
+
 const fetchGeometries = async (idModele, tailles) => {
   const geoData = {}
   for (const taille of tailles) {
@@ -256,7 +256,7 @@ const fetchData = async () => {
       fetch(`${API_BASE}/Articles/GetSimilar/${cleanRef}`)
     ]
 
-    // Si c'est un vélo, on charge aussi les accessoires compatibles
+    
     if (isVelo.value) {
       fetchPromises.push(fetch(`${API_BASE}/Accessoire/GetCompatibleWith/${cleanRef}`).catch(()=>null))
     }
@@ -274,7 +274,7 @@ const fetchData = async () => {
       const similarData = await resSimilar.json()
       articlesSimilaires.value = similarData
         .filter(a => a.reference.trim() !== cleanRef)
-        .slice(0, 12) // On limite à 12 pour le carrousel
+        .slice(0, 12) 
     }
 
     if (isVelo.value && responses.length > 4) {
@@ -304,7 +304,7 @@ const fetchData = async () => {
         })
         .sort((a, b) => a.idBatterieNavigation.capaciteBatterie - b.idBatterieNavigation.capaciteBatterie)
 
-      // Récupération informations batterie
+      
       const idBat = article.value.idBatterie || modelData.idBatterie
       if (idBat) {
         try {
@@ -823,7 +823,7 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 
 .help-circle { background: #00CFE8; color: #fff; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 0.7rem; margin-left: 5px; cursor: help; }
 
-/* Styles du Carrousel (Articles Similaires et Compatibles) */
+
 .text-center { text-align: center; }
 .carousel-section { margin-top: 60px; padding-top: 40px; border-top: 1px solid #eee; position: relative; }
 .carousel-section .section-label { font-size: 1.5rem; margin-bottom: 30px; text-align: center; }
@@ -835,15 +835,15 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
   scroll-behavior: smooth;
   padding: 15px 5px;
   scroll-snap-type: x mandatory;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; 
+  -ms-overflow-style: none; 
   
-  /* Lignes modifiées pour le centrage */
+  
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;
 }
-.carousel-track::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+.carousel-track::-webkit-scrollbar { display: none; } 
 .nav-btn-carousel {
   position: absolute;
   top: 50%;
@@ -860,7 +860,7 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .nav-btn-carousel.prev { left: 0px; }
 .nav-btn-carousel.next { right: 0px; }
 
-/* Styles des Cartes dans le Carrousel */
+
 .similar-card { 
   flex: 0 0 auto; 
   width: 250px; 
@@ -882,7 +882,7 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .similar-name { font-weight: 900; font-style: italic; font-size: 1rem; margin: 0 0 10px 0; text-transform: uppercase; }
 .similar-price { font-weight: 700; color: #666; }
 
-/* Modal */
+
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
 .modal-content { background: #fff; padding: 40px; border-radius: 12px; text-align: center; position: relative; max-width: 500px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.15); animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes modalPop { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
@@ -904,7 +904,7 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
 .calculator-integration-wrapper {
   margin: 60px 0;
   padding: 50px 20px;
-  background-color: #f8f9fa; /* Fond gris très clair pour faire ressortir la zone */
+  background-color: #f8f9fa; 
   border-top: 1px solid #eaeaea;
   border-bottom: 1px solid #eaeaea;
 }
@@ -931,9 +931,9 @@ th.highlight-column { color: #00CFE8; background-color: rgba(0, 207, 232, 0.15) 
   margin: 0 auto;
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04); /* Ombre douce et moderne */
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04); 
   border: 1px solid #f0f0f0;
-  overflow: hidden; /* Garde les bords arrondis propres */
+  overflow: hidden; 
   padding: 10px;
 }
 </style>

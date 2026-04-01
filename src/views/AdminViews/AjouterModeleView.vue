@@ -125,18 +125,18 @@
   
   const router = useRouter();
   
-  // --- ÉTAT GLOBAL ---
+  
   const step = ref(1);
   const loading = ref(false);
   const feedback = ref('');
   const isError = ref(false);
   
-  // --- DONNÉES API ---
+  
   const categories = ref([]);
   const tailles = ref([]);
   const geometries = ref([]);
   
-  // --- MODÈLES DE DONNÉES ÉTAPE 1 ---
+  
   const modele = ref({
     nomModele: '',
     millesimeModele: '',
@@ -146,19 +146,19 @@
     texteDescription: ''
   });
   
-  // --- MODÈLES DE DONNÉES ÉTAPE 2 ---
+  
   const createdModeleId = ref(null);
   const selectedTaille = ref('');
-  // Structure : { idTaille: { idGeometrie: valeur, ... } }
+  
   const allGeoValues = ref({}); 
   
-  // Helper : Obtenir le nom de la taille à partir de son ID
+  
   const getTailleLabel = (id) => {
     const t = tailles.value.find(t => t.idTaille == id);
     return t ? t.taille : 'Inconnue';
   };
   
-  // Computed : Détecter quelles tailles contiennent au moins une valeur saisie
+  
   const taillesSaisies = computed(() => {
     const saisies = {};
     for (const [idTaille, geoObj] of Object.entries(allGeoValues.value)) {
@@ -169,14 +169,14 @@
     return saisies;
   });
   
-  // Watcher : Initialiser l'objet de la taille sélectionnée si elle n'existe pas encore
+  
   watch(selectedTaille, (newTailleId) => {
     if (newTailleId && !allGeoValues.value[newTailleId]) {
       allGeoValues.value[newTailleId] = {};
     }
   });
   
-  // --- INITIALISATION ---
+  
   onMounted(async () => {
     try {
       const [catRes, tailleRes, geoRes] = await Promise.all([
@@ -195,14 +195,14 @@
   
   const goBack = () => router.push('/espace-commercial');
   
-  // --- SOUMISSION ÉTAPE 1 (Création du modèle) ---
+  
   const submitStep1 = async () => {
     loading.value = true;
     feedback.value = "";
     isError.value = false;
   
     try {
-      // 1. Création de la description
+      
       const descResponse = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Description/PostDescription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -215,7 +215,7 @@
       const idDesc = descData.idDescription || descData.IdDescription || descData.id_description;
       if (!idDesc) throw new Error("Impossible de récupérer l'ID de la description.");
   
-      // 2. Création du modèle (Payload propre, en supposant que l'API C# a été corrigée avec des '?')
+      
       const modelePayload = {
         idCategorie: parseInt(modele.value.idCategorie),
         idDescription: parseInt(idDesc), 
@@ -239,7 +239,7 @@
   
       const modData = await modResponse.json();
   
-      // 3. Succès : Passage à la géométrie
+      
       createdModeleId.value = modData.idModele || modData.IdModele || modData.id_modele;
       step.value = 2;
   
@@ -251,7 +251,7 @@
     }
   };
   
-    // --- SOUMISSION ÉTAPE 2 (Une par une pour éviter de faire exploser la base de données) ---
+    
     const submitAllGeometries = async () => {
     loading.value = true;
     feedback.value = "";
@@ -260,14 +260,14 @@
     let errorCount = 0;
     let successCount = 0;
 
-    // On parcourt tout et on envoie séquentiellement (await dans la boucle)
+    
     for (const [idTaille, geoObj] of Object.entries(allGeoValues.value)) {
         for (const [idGeometrie, valeur] of Object.entries(geoObj)) {
         if (valeur !== null && valeur !== "" && valeur !== undefined) {
             
             const payload = {
             idGeometrie: parseInt(idGeometrie),
-            idModele: parseInt(createdModeleId.value), // ParseInt par sécurité !
+            idModele: parseInt(createdModeleId.value), 
             idTaille: parseInt(idTaille),
             valeurGeometrie: parseFloat(valeur)
             };
@@ -301,7 +301,7 @@
         return;
     }
 
-    // Bilan
+    
     if (errorCount === 0) {
         isError.value = false;
         feedback.value = `${successCount} géométries enregistrées avec succès !`;

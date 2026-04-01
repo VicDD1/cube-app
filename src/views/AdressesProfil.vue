@@ -238,7 +238,7 @@ const fetchAdresses = async () => {
       }
     }
 
-    // 2. ADRESSES DE LIVRAISON
+    
     const resLiv = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/GetByClient/${appStore.user.idClient}`)
     if (resLiv.ok) {
       const dataLiv = await resLiv.json()
@@ -276,7 +276,7 @@ const fetchAdresses = async () => {
 onMounted(() => { fetchAdresses() })
 
 const supprimerAdresse = async (adr) => {
-  // Suppression instantanée, sans confirmation
+  
   try {
     const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/AdresseLivraison/DeleteAdresseLivraison/${adr.idClient}/${adr.idAdresse}`, {
       method: 'DELETE'
@@ -336,7 +336,7 @@ const supprimerAdresse = async (adr) => {
 .btn-action.delete { color: #cc0000; }
 .btn-action.delete:hover:not(:disabled) { text-decoration: underline; color: #990000; }
 
-/* LE STYLE DU BOUTON DÉSACTIVÉ */
+
 .btn-action.delete.btn-disabled {
   color: #ccc; 
   cursor: not-allowed; 

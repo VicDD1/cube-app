@@ -15,7 +15,7 @@ const loading = ref(true)
 const showPaymentModal = ref(false)
 const isPaypalLoading = ref(false)
 
-// --- GESTION DES ADRESSES ---
+
 const addresses = ref([])
 const selectedAddressId = ref(null)
 
@@ -32,7 +32,7 @@ const insertionCommande = async () => {
     return false;
   }
 
-  // Sécurité : Vérifier qu'une adresse est bien sélectionnée
+  
   if (!selectedAddressId.value) {
     alert("Veuillez sélectionner une adresse de livraison.");
     return false;
@@ -40,7 +40,7 @@ const insertionCommande = async () => {
 
   const commandeData = {
     idClient: parseInt(idClient.value),
-    idAdresse: parseInt(selectedAddressId.value), // L'ID réel sélectionné !
+    idAdresse: parseInt(selectedAddressId.value), 
     idTypeLivraison: 2, 
     idPanier: parseInt(cart.value.idPanier),
     dateCommande: new Date().toISOString().split('T')[0], 
@@ -115,7 +115,7 @@ const selectStripe = async () => {
   }
 }
 
-// --- PAYPAL ---
+
 const initPayPal = async () => {
   isPaypalLoading.value = true
   try {
@@ -163,13 +163,13 @@ const openPaymentModal = () => {
   })
 }
 
-// --- CHARGEMENT DES ADRESSES ---
+
 const fetchAddresses = async () => {
   if (!idClient.value) return
   try {
     const list = []
 
-    // 1. Facturation (Adresse principale du compte)
+    
     if (appStore.user?.idAdresseFacturation) {
       const resFact = await fetch(`${API_BASE}/Adresse/GetAdresseById/${appStore.user.idAdresseFacturation}`)
       if (resFact.ok) {
@@ -184,7 +184,7 @@ const fetchAddresses = async () => {
       }
     }
 
-    // 2. Adresses de livraison
+    
     const resLiv = await fetch(`${API_BASE}/AdresseLivraison/GetByClient/${idClient.value}`)
     if (resLiv.ok) {
       const dataLiv = await resLiv.json()
@@ -192,7 +192,7 @@ const fetchAddresses = async () => {
       
       livraisons.forEach(liv => {
         const adrDetail = liv.idAdresseNavigation || liv.adresseNavigation || liv.adresse || liv
-        // On évite les doublons si l'adresse de facturation est aussi une adresse de livraison
+        
         if (!list.find(a => a.idAdresse === adrDetail.idAdresse)) {
           list.push({
             idAdresse: adrDetail.idAdresse,
@@ -206,7 +206,7 @@ const fetchAddresses = async () => {
     }
 
     addresses.value = list
-    // Par défaut, on sélectionne la première adresse de la liste
+    
     if (list.length > 0) {
       selectedAddressId.value = list[0].idAdresse
     }

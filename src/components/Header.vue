@@ -28,14 +28,14 @@ let hoverTimeout = null
 
 const storeLocatorRef = ref(null)
 
-// --- SYSTÈME DE RECHERCHE ANIMÉ ---
+
 const isSearchOpen = ref(false)
 const searchQuery = ref('')
 const allArticles = ref([])
 const isLoadingSearch = ref(false)
 const searchInputRef = ref(null)
 
-// Fonction pour récupérer l'image selon la référence
+
 const getResultImage = (refStr) => {
   if (!refStr) return 'https://via.placeholder.com/50?text=?'
   const cleanRef = refStr.trim()
@@ -88,7 +88,7 @@ const goToArticle = (reference) => {
   closeSearch()
   router.push({ name: 'visualize', params: { id: reference.trim() } })
 }
-// ----------------------------
+
 
 const handleStoreSelection = (magasin) => {
   if (appStore.setMagasin) appStore.setMagasin(magasin)
@@ -394,7 +394,7 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
   white-space: nowrap;
 }
 
-/* --- NAVIGATION PRINCIPALE --- */
+
 .main-nav {
   position: relative;
   display: flex;
@@ -453,7 +453,7 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
 
 .icon-btn { background: none; border: none; cursor: pointer; padding: 6px; display: flex; align-items: center; justify-content: center; }
 
-/* --- RECHERCHE ANIMÉE (Version XXL) --- */
+
 .search-animated-container {
   display: flex;
   align-items: center;
@@ -509,7 +509,7 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
   padding: 5px 20px 5px 10px;
 }
 
-/* PANNEAU DE RÉSULTATS XXL */
+
 .search-results-dropdown {
   position: absolute;
   top: calc(100% + 20px);
@@ -531,7 +531,7 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
   font-style: italic; 
 }
 
-/* Affichage en grille sur 2 colonnes */
+
 .search-results { 
   list-style: none; 
   padding: 0; 
@@ -581,7 +581,7 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
 .res-ref { font-size: 0.75rem; color: #888; font-weight: 700; }
 .res-price { font-weight: 900; font-style: italic; color: #00a8e8; font-size: 1.15rem; white-space: nowrap; }
 
-/* --- PANIER --- */
+
 .cart-container-btn { position: relative; display: flex; align-items: center; text-decoration: none; }
 .cart-badge {
   position: absolute; top: -2px; right: -5px; background-color: #00a8e8; color: white;
@@ -590,7 +590,7 @@ const cancelClear = () => { if (hoverTimeout) clearTimeout(hoverTimeout) }
 }
 .main-nav:hover .cart-badge { border-color: #fff; }
 
-/* --- MEGA MENU --- */
+
 .mega-menu {
   position: absolute; top: 100%; left: 0; width: 100%; background-color: #fff;
   display: flex; padding: 50px 80px 70px; min-height: 400px; box-sizing: border-box;

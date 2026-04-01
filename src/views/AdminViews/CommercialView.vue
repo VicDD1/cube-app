@@ -59,10 +59,10 @@
       router.push('/espace-commercial/modifier-variante');
     };
 
-    // FONCTION DE DÉCONNEXION
+    
     const handleLogout = () => {
-      store.logout(); // On vide le store et le localStorage
-      router.push('/'); // Retour à l'accueil
+      store.logout(); 
+      router.push('/'); 
     };
   </script>
   
@@ -147,7 +147,7 @@
     border-color: #00a8e8;
   }
 
-  /* STYLES DU BOUTON DE DÉCONNEXION */
+  
   .logout-section {
     margin-top: 40px;
     display: flex;
@@ -157,7 +157,7 @@
   .logout-btn {
     padding: 12px 30px;
     background-color: transparent;
-    color: #cc0000; /* Rouge vif pour le danger/déconnexion */
+    color: #cc0000; 
     border: 2px solid #cc0000;
     font-family: 'CubeFont', sans-serif;
     font-weight: 800;

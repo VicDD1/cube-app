@@ -7,7 +7,7 @@ const router = useRouter()
 const appStore = useAppStore()
 
 onMounted(() => {
-  // Réinitialisation du panier après le succès du paiement
+  
   localStorage.removeItem('panierVisiteur')
   appStore.cartItemCount = 0
 })

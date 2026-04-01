@@ -4,7 +4,7 @@ import { useAppStore } from '../stores/useStore'
 
 const appStore = useAppStore()
 
-// On sécurise l'affichage au cas où la page charge avant le store
+
 const user = computed(() => appStore.user || {
   nomClient: 'OPRINSEN',
   prenomClient: 'Tristan',
@@ -84,7 +84,7 @@ const user = computed(() => appStore.user || {
   flex-wrap: wrap; 
 }
 
-/* --- STYLE DES CARTES --- */
+
 .dash-card {
   background: #fff;
   flex: 1;
@@ -123,7 +123,7 @@ const user = computed(() => appStore.user || {
   cursor: help;
 }
 
-/* --- CARTE PROFIL --- */
+
 .full-name {
   font-size: 1.1rem;
   font-weight: 800;
@@ -174,7 +174,7 @@ const user = computed(() => appStore.user || {
   color: #000;
 }
 
-/* --- CARTES COMMANDES & ADRESSES --- */
+
 .flex-center {
   display: flex;
   flex-direction: column;

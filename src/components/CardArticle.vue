@@ -13,13 +13,13 @@ const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsite
 const inventaireRaw = ref([])
 const loadingStock = ref(true)
 
-// --- RÉCUPÉRATION DE LA "VÉRITÉ" DU STOCK ---
+
 const fetchRealStock = async () => {
   loadingStock.value = true
   try {
     const res = await fetch(`${API_BASE}/Articles/GetStock/${props.article.reference.trim()}`)
     const data = await res.json()
-    // On extrait le tableau d'inventaire (Web + Magasins)
+    
     inventaireRaw.value = data.articleInventaires?.$values || data.articleInventaires || []
   } catch (err) {
     console.error("Erreur stock card:", err)
@@ -28,7 +28,7 @@ const fetchRealStock = async () => {
   }
 }
 
-// --- LOGIQUE DE CALCUL ---
+
 const hasOnlineStock = computed(() => {
   return inventaireRaw.value.some(inv => (inv.quantiteStockEnLigne || 0) > 0)
 })
@@ -47,7 +47,7 @@ const hasMagasinStock = computed(() => {
 })
 
 onMounted(fetchRealStock)
-// Si la référence change (ex: pagination), on recharge
+
 watch(() => props.article.reference, fetchRealStock)
 
 const getImageUrl = (ref) => {
@@ -89,33 +89,33 @@ const getImageUrl = (ref) => {
     </div>
   </RouterLink>
 </template><style scoped>
-/* Conteneur principal */
+
 .card-article {
   background: #ffffff;
   text-decoration: none;
   color: #0f172a;
   display: flex;
   flex-direction: column;
-  padding: 16px; /* Plus d'espace interne */
+  padding: 16px; 
   height: 100%;
-  border-radius: 24px; /* Arrondi plus moderne */
-  border: 1px solid #f1f5f9; /* Bordure légère pour la définition */
+  border-radius: 24px; 
+  border: 1px solid #f1f5f9; 
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
 }
 
-/* Effet au survol de la carte */
+
 .card-article:hover {
   transform: translateY(-8px);
   border-color: transparent;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
 }
-/* --- IMAGE (Version Statique) --- */
+
 .image-container {
   width: 100%;
   height: 220px;
-  background: #f8fafc; /* Fond gris très clair uni pour plus de sobriété */
+  background: #f8fafc; 
   border-radius: 18px;
   display: flex;
   align-items: center;
@@ -128,31 +128,31 @@ const getImageUrl = (ref) => {
   max-width: 85%;
   max-height: 85%;
   object-fit: contain;
-  /* On a supprimé le transition et le transform ici */
+  
 }
 
-/* On supprime l'effet de zoom au survol */
+
 .card-article:hover .image-container img {
   transform: none; 
 }
 
-/* --- INTERACTION DOUCE --- */
+
 .card-article:hover {
-  transform: translateY(-4px); /* Soulèvement très léger */
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06); /* Ombre plus discrète */
+  transform: translateY(-4px); 
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06); 
   border-color: #e2e8f0;
 }
 
 .card-article:hover .nom {
-  color: #00A3E0; /* Seul le titre change de couleur pour indiquer le clic */
+  color: #00A3E0; 
 }
 
 .card-article:hover .btn-arrow {
   background: #00A3E0;
   color: #ffffff;
-  /* On a supprimé le translateX pour que la flèche reste fixe */
+  
 }
-/* Contenu textuel */
+
 .card-content {
   display: flex;
   flex-direction: column;
@@ -178,7 +178,7 @@ const getImageUrl = (ref) => {
   color: #00A3E0;
 }
 
-/* --- STATUS PILLS (Badges de stock) --- */
+
 .status-container {
   display: flex;
   gap: 6px;
@@ -200,9 +200,9 @@ const getImageUrl = (ref) => {
   transition: all 0.3s ease;
 }
 
-/* État En Stock */
+
 .status-pill.ok {
-  background: #ecfdf5; /* Vert menthe très clair */
+  background: #ecfdf5; 
   color: #059669;
 }
 
@@ -211,9 +211,9 @@ const getImageUrl = (ref) => {
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 
-/* État Hors Stock */
+
 .status-pill.out {
-  background: #fff1f2; /* Rouge très clair */
+  background: #fff1f2; 
   color: #e11d48;
 }
 
@@ -227,7 +227,7 @@ const getImageUrl = (ref) => {
   border-radius: 50%;
 }
 
-/* --- FOOTER (Prix & Bouton) --- */
+
 .card-footer {
   margin-top: auto;
   display: flex;
@@ -243,7 +243,7 @@ const getImageUrl = (ref) => {
   letter-spacing: -0.03em;
 }
 
-/* Bouton Flèche */
+
 .btn-arrow {
   width: 40px;
   height: 40px;
@@ -264,10 +264,10 @@ const getImageUrl = (ref) => {
 .card-article:hover .btn-arrow {
   background: #00A3E0;
   color: #ffffff;
-  transform: translateX(4px); /* Petit décalage vers la droite */
+  transform: translateX(4px); 
 }
 
-/* Skeleton loader */
+
 .status-skeleton {
   width: 80px;
   height: 20px;

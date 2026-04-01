@@ -13,7 +13,7 @@ const isSubmitted = ref(false)
 
 const envoyerMessage = async () => {
   try {
-    // Appel à l'API Formspree (ou autre service similaire)
+    
     const response = await fetch('https://formspree.io/f/mjgalgkw', {
       method: 'POST',
       headers: {
@@ -26,7 +26,7 @@ const envoyerMessage = async () => {
     if (response.ok) {
       isSubmitted.value = true
       
-      // Reset du formulaire
+      
       form.value = { nom: '', email: '', sujet: '', message: '' }
       
       setTimeout(() => {
@@ -128,7 +128,7 @@ const envoyerMessage = async () => {
   color: #1a1a1a;
 }
 
-/* --- EN-TÊTE --- */
+
 .contact-header {
   text-align: center;
   margin-bottom: 60px;
@@ -147,7 +147,7 @@ const envoyerMessage = async () => {
   font-weight: 500;
 }
 
-/* --- GRILLE --- */
+
 .contact-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -163,7 +163,7 @@ const envoyerMessage = async () => {
   padding-bottom: 5px;
 }
 
-/* --- FORMULAIRE --- */
+
 .contact-form {
   background: #fdfdfd;
   padding: 30px;
@@ -215,7 +215,7 @@ const envoyerMessage = async () => {
   transform: translateY(-2px);
 }
 
-/* Message de succès */
+
 .success-message {
   text-align: center;
   padding: 50px 30px;
@@ -235,7 +235,7 @@ const envoyerMessage = async () => {
   margin-bottom: 10px;
 }
 
-/* --- COORDONNÉES --- */
+
 .info-section {
   display: flex;
   flex-direction: column;
@@ -277,7 +277,7 @@ const envoyerMessage = async () => {
   font-size: 0.95rem;
 }
 
-/* --- RESPONSIVE --- */
+
 @media (max-width: 900px) {
   .contact-grid {
     grid-template-columns: 1fr;

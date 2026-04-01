@@ -64,11 +64,11 @@ import { useRouter } from 'vue-router';
 import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 import emailjs from '@emailjs/browser';
 
-// --- Store & router ---
+
 const store = useAppStore();
 const router = useRouter();
 
-// --- États principaux ---
+
 const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
@@ -81,7 +81,7 @@ const userEnteredCode = ref('');
 const generatedCode = ref('');
 const pendingUser = ref(null);
 
-// --- LOGIN EMAIL/PASSWORD ---
+
 const handleLogin = async () => {
   if (loading.value) return;
   loading.value = true;
@@ -108,7 +108,7 @@ const handleLogin = async () => {
       pendingUser.value = userData;
       generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
 
-      // Envoi du code par mail
+      
       await emailjs.send(
         'service_ues7qi8',
         'template_by4mad9',
@@ -136,7 +136,7 @@ const handleLogin = async () => {
   }
 };
 
-// --- CONFIRMATION DOUBLE AUTH ---
+
 const confirmA2F = () => {
   if (userEnteredCode.value === generatedCode.value) {
     finalizeLogin(pendingUser.value, pendingUser.value.googleId || null);
@@ -146,7 +146,7 @@ const confirmA2F = () => {
   }
 };
 
-// --- FINALISER LOGIN ---
+
 const finalizeLogin = (userData, googleId = null) => {
   store.login(userData, googleId);
   isError.value = false;
@@ -158,7 +158,7 @@ const finalizeLogin = (userData, googleId = null) => {
   }, 1500);
 };
 
-// --- GOOGLE SIGN-IN ---
+
 const handleGoogleSuccess = async (response) => {
   if (loading.value) return;
   loading.value = true;
@@ -362,25 +362,25 @@ input:focus {
   opacity: 0; 
 }
 
-/* Conteneur pour aligner l'input et le bouton */
+
 .input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-/* On s'assure que l'input laisse de la place pour le texte à droite */
+
 .input-wrapper input {
-  padding-right: 60px; /* Espace pour ne pas que le texte chevauche le bouton */
+  padding-right: 60px; 
 }
 
-/* Style du bouton "VOIR / CACHER" */
+
 .toggle-btn {
   position: absolute;
   right: 12px;
   background: none;
   border: none;
-  color: #00a8e8; /* Ton bleu Cube */
+  color: #00a8e8; 
   font-family: 'CubeFont', sans-serif;
   font-size: 10px;
   font-weight: 800;
@@ -394,7 +394,7 @@ input:focus {
   color: #000;
 }
 
-/* Ajustement pour que le champ password s'aligne bien avec les autres */
+
 .field-group {
   margin-bottom: 18px;
 }
@@ -403,7 +403,7 @@ input:focus {
   width: 100%;
   padding: 14px;
   background-color: transparent;
-  color: #555; /* Gris foncé pour contraster avec ton bouton principal noir */
+  color: #555; 
   border: 2px solid #ddd;
   font-family: 'CubeFont', sans-serif;
   font-size: 13px;
@@ -412,17 +412,17 @@ input:focus {
   text-transform: uppercase;
   cursor: pointer;
   margin-top: 10px;
-  transition: all 0.3s ease; /* Animation fluide au survol */
+  transition: all 0.3s ease; 
 }
 
-/* Effet au survol : le bouton s'assombrit pour montrer qu'il est cliquable */
+
 .back-btn:hover:not(:disabled) {
   border-color: #000;
   color: #000;
   background-color: #f9f9f9;
 }
 
-/* Style si le bouton est désactivé (pendant un chargement) */
+
 .back-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;

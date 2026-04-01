@@ -198,15 +198,15 @@ import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 import emailjs from '@emailjs/browser';
-import { useValidation } from '@/composables/useValidation'; // Ajuste le chemin si besoin
+import { useValidation } from '@/composables/useValidation'; 
 
 const router = useRouter();
 
-// --- VALIDATION ---
+
 const { errors, validateRegistration } = useValidation();
 
-// --- ÉTATS DE L'INTERFACE ---
-const step = ref(1); // 1: Formulaire, 2: Saisie du code de validation
+
+const step = ref(1); 
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
@@ -215,7 +215,7 @@ const sameAddress = ref(true);
 const suggestions = ref([]);
 const googleIdValue = ref(null); 
 
-// --- LOGIQUE DE SÉCURITÉ ---
+
 const generatedCode = ref('');
 const userEnteredCode = ref('');
 const confirmPassword = ref('');
@@ -266,7 +266,7 @@ const handleGoogleSuccess = async (response) => {
       form.nom = userData.family_name ? userData.family_name.toUpperCase() : '';
       form.prenomClient = userData.given_name || '';
       
-      form.password = Math.random().toString(36).slice(-10) + "A1!"; // Génération d'un MDP fort temporaire
+      form.password = Math.random().toString(36).slice(-10) + "A1!"; 
       confirmPassword.value = form.password;
 
       feedback.value = "COMPTE GOOGLE RECONNU. VEUILLEZ COMPLÉTER VOTRE ADRESSE.";
@@ -284,7 +284,7 @@ const handleGoogleError = () => {
   feedback.value = "ÉCHEC DE L'AUTHENTIFICATION GOOGLE.";
 };
 
-// --- AUTOCOMPLÉTION ADRESSE (API GOUV) ---
+
 const onAddressInput = async (query) => {
   if (!query || query.length < 4) {
     suggestions.value = [];
@@ -312,7 +312,7 @@ const selectAdresse = (feature, type) => {
   suggestions.value = []; 
 };
 
-// --- ÉTAPE 1 : VÉRIFICATION EMAIL ET ENVOI DU CODE ---
+
 const handleRegistration = async () => {
 
 
@@ -365,7 +365,7 @@ const handleRegistration = async () => {
   }
 };
 
-// --- ÉTAPE 2 : VALIDATION DU CODE ET CRÉATION RÉELLE EN BASE ---
+
 const confirmAndCreateAccount = async () => {
   if (userEnteredCode.value !== generatedCode.value) {
     isError.value = true;
@@ -492,9 +492,9 @@ const confirmAndCreateAccount = async () => {
 
 .checkbox-container {
   display: flex;
-  flex-direction: row; /* Aligne horizontalement */
-  align-items: center; /* Centre verticalement */
-  gap: 10px; /* Espace entre la case et le texte */
+  flex-direction: row; 
+  align-items: center; 
+  gap: 10px; 
   margin-top: 10px;
   margin-bottom: 20px;
 }
@@ -711,7 +711,7 @@ input:focus {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* Styles de validation */
+
 .field-error {
   display: block;
   color: #dc2626;

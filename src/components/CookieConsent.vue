@@ -142,7 +142,7 @@ const handleContinueWithoutAccepting = () => {
 </template>
 
 <style scoped>
-/* Variables UI */
+
 :root {
   --cube-cyan: #00a8e8;
   --cube-dark: #111;
@@ -150,7 +150,7 @@ const handleContinueWithoutAccepting = () => {
   --text-light: #555;
 }
 
-/* Base Overlay */
+
 .cookie-overlay {
   position: fixed;
   inset: 0;
@@ -164,13 +164,13 @@ const handleContinueWithoutAccepting = () => {
   font-family: Arial, sans-serif;
 }
 
-/* --- VUE 1 : BANNIERE --- */
+
 .cookie-banner {
   display: flex;
   width: 90%;
   max-width: 1100px;
   height: 60vh;
-  min-height: 480px; /* Légèrement augmenté pour le grand texte */
+  min-height: 480px; 
   background: #fff;
   border-radius: 4px;
   overflow: hidden;
@@ -178,7 +178,7 @@ const handleContinueWithoutAccepting = () => {
   border: 1px solid #00a8e8;
 }
 
-/* Proportions : 35% Image / 65% Texte */
+
 .banner-image {
   width: 35%; 
   background: url('@/assets/images/imgCookies.png') center/cover no-repeat;
@@ -193,7 +193,7 @@ const handleContinueWithoutAccepting = () => {
   background: #fff;
 }
 
-/* Header : Logo centré avec le lien juste en dessous */
+
 .banner-header {
   display: flex;
   flex-direction: column;
@@ -202,7 +202,7 @@ const handleContinueWithoutAccepting = () => {
 }
 
 .invert-logo {
-  height: 40px; /* LOGO AGRANDI ICI */
+  height: 40px; 
   filter: invert(100%);
   margin-bottom: 12px;
 }
@@ -224,7 +224,7 @@ const handleContinueWithoutAccepting = () => {
   margin-bottom: auto;
 }
 
-/* Styles ajustés pour les gros blocs de texte */
+
 .banner-text p.intro-text { 
   color: var(--text-main); 
   font-size: 0.9rem; 
@@ -247,7 +247,7 @@ const handleContinueWithoutAccepting = () => {
   text-align: justify;
 }
 
-/* Actions centrées en bas */
+
 .banner-actions {
   display: flex;
   justify-content: center;
@@ -285,7 +285,7 @@ const handleContinueWithoutAccepting = () => {
 }
 .btn-primary:hover { background: #008fbb; }
 
-/* --- VUE 2 : MODALE (Inchangée visuellement) --- */
+
 .cookie-modal {
   width: 100%;
   max-width: 650px;
@@ -404,7 +404,7 @@ const handleContinueWithoutAccepting = () => {
 }
 .link-btn:hover { color: #00a8e8; }
 
-/* Transitions Vue */
+
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-up-enter-active, .slide-up-leave-active { transition: transform 0.4s ease, opacity 0.4s; }

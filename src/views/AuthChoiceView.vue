@@ -104,7 +104,7 @@
   font-size: 14px;
   color: #888;
   margin-bottom: 30px;
-  height: 40px; /* Aligne les boutons */
+  height: 40px; 
 }
 
 .btn-primary, .btn-outline {

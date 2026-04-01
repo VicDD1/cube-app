@@ -4,7 +4,7 @@ import { useAppStore } from '../stores/useStore'
 
 const appStore = useAppStore()
 
-// On regarde la variable dédiée du store
+
 const isGoogleUser = computed(() => {
   return !!appStore.idGoogleClient
 })
@@ -39,13 +39,13 @@ onMounted(() => {
   }
 })
 
-// --- LOGIQUE DE VALIDATION ---
+
 const validateProfile = () => {
-  // Réinitialiser les erreurs
+  
   Object.keys(errors).forEach(key => delete errors[key])
   let isValid = true
 
-  // Validation Nom / Prénom
+  
   if (!form.nomClient || form.nomClient.trim().length < 2) {
     errors.nomClient = "Le nom doit contenir au moins 2 caractères."
     isValid = false
@@ -55,7 +55,7 @@ const validateProfile = () => {
     isValid = false
   }
 
-  // Validation Date de Naissance
+  
   if (!form.dateNaissance) {
     errors.dateNaissance = "La date de naissance est requise."
     isValid = false
@@ -73,7 +73,7 @@ const validateProfile = () => {
     }
   }
 
-  // Validation Email UNIQUEMENT si c'est pas Google
+  
   if (!isGoogleUser.value) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!form.emailClient || !emailRegex.test(form.emailClient)) {
@@ -82,14 +82,14 @@ const validateProfile = () => {
     }
   }
 
-  // Validation Téléphone
+  
   const phoneRegex = /^(0|\+33|0033)[1-9]([-. ]?[0-9]{2}){4}$/
   if (form.tel && form.tel.trim() !== '' && !phoneRegex.test(form.tel.trim())) {
     errors.tel = "Format invalide (ex: 06 12 34 56 78)."
     isValid = false
   }
 
-  // Validation MDP UNIQUEMENT si c'est pas Google
+  
   if (!isGoogleUser.value && newPassword.value) {
     if (newPassword.value.length < 5) {
       errors.newPassword = "5 caractères minimum"
@@ -126,7 +126,7 @@ const handleUpdate = async () => {
       dateNaissance: form.dateNaissance,
       tel: String(form.tel || "").replace(/\s/g, ""),
       doubleAuth: form.doubleAuth,
-      googleId: appStore.idGoogleClient // On tape dans la variable du store !
+      googleId: appStore.idGoogleClient 
     }
 
     if (!isGoogleUser.value && newPassword.value) {

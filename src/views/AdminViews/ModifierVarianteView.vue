@@ -117,23 +117,23 @@
   const photo = ref({ file: null, estPrincipale: false });
   
 
-  // --- AUTO-REMPLISSAGE : STOCK ---
+  
     watch([() => stock.value.idTaille, selectedReference], async ([newTaille, newRef]) => {
-    // Si on n'a pas sélectionné de taille ou de vélo, on vide la case
+    
     if (!newTaille || !newRef) {
         stock.value.qte = '';
         return;
     }
     
     try {
-        // On interroge l'API pour récupérer tous les stocks de ce vélo
+        
         const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ArticleInventaire/GetByReference/${newRef}`);
         if (res.ok) {
         const stocks = await res.json();
-        // On cherche le stock spécifique à la taille sélectionnée
+        
         const existing = stocks.find(s => s.idTaille === parseInt(newTaille) || s.IdTaille === parseInt(newTaille));
         
-        // Si on le trouve, on l'affiche dans l'input. Sinon, on laisse vide.
+        
         stock.value.qte = existing ? (existing.quantiteStockEnLigne || existing.QuantiteStockEnLigne) : '';
         } else {
         stock.value.qte = '';
@@ -145,7 +145,7 @@
     });
 
 
-    // --- AUTO-REMPLISSAGE : CARACTÉRISTIQUE ---
+    
     watch([() => carac.value.idCaracteristique, selectedReference], async ([newCaracId, newRef]) => {
     if (!newCaracId || !newRef) {
         carac.value.valeur = '';
@@ -153,14 +153,14 @@
     }
     
     try {
-        // On demande directement cette caractéristique précise à l'API
+        
         const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ACaracteristique/GetByIds/${parseInt(newCaracId)}/${newRef}`);
         if (res.ok) {
         const data = await res.json();
-        // Si elle existe, on remplit le champ texte !
+        
         carac.value.valeur = data.valeurCaracteristique || data.ValeurCaracteristique || '';
         } else {
-        // Erreur 404 (elle n'existe pas encore), on vide le champ
+        
         carac.value.valeur = '';
         }
     } catch (e) {
@@ -170,8 +170,8 @@
     });
 
 
-    // --- NETTOYAGE LORS DU CHANGEMENT DE VÉLO ---
-    // Si l'utilisateur change de variante de vélo, on remet les formulaires à zéro
+    
+    
     watch(selectedReference, () => {
     stock.value.idTaille = '';
     stock.value.qte = '';
@@ -207,7 +207,7 @@
     setTimeout(() => { feedback.value = ''; }, 5000);
   };
   
-// 1. AJOUTER DU STOCK
+
 const addStock = async () => {
   loadingStock.value = true;
   try {
@@ -215,19 +215,19 @@ const addStock = async () => {
     const ref = selectedReference.value;
     const qteNum = parseInt(stock.value.qte);
 
-    // ÉTAPE A : Vérifier si un stock existe déjà pour ce vélo
+    
     const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ArticleInventaire/GetByReference/${ref}`);
     let existingStock = null;
 
     if (checkRes.ok) {
       const stocks = await checkRes.json();
-      // On cherche si cette taille exacte est déjà enregistrée
+      
       existingStock = stocks.find(s => s.idTaille === idTailleNum || s.IdTaille === idTailleNum);
     }
 
     if (existingStock) {
-      // ÉTAPE B1 : MODIFICATION (PUT)
-      // L'API a besoin de la clé primaire (idArticleInventaire) pour faire le PUT
+      
+      
       const idArtInv = existingStock.idArticleInventaire || existingStock.IdArticleInventaire;
       
       const payloadPut = {
@@ -247,7 +247,7 @@ const addStock = async () => {
       showMessage("✅ Stock mis à jour avec succès ! (Écrasement)");
 
     } else {
-      // ÉTAPE B2 : CRÉATION (POST)
+      
       const payloadPost = {
         idArticleInventaire: 0,
         idTaille: idTailleNum,
@@ -265,7 +265,7 @@ const addStock = async () => {
       showMessage("✅ Nouveau stock ajouté avec succès !");
     }
 
-    // On vide seulement la quantité
+    
     stock.value.qte = '';
     
   } catch (err) {
@@ -276,7 +276,7 @@ const addStock = async () => {
 };
 
 
-// 2. AJOUTER OU MODIFIER UNE CARACTÉRISTIQUE (Upsert)
+
 const addCarac = async () => {
   loadingCarac.value = true;
   try {
@@ -290,11 +290,11 @@ const addCarac = async () => {
       valeurCaracteristique: valText
     };
 
-    // ÉTAPE A : Demander à l'API si cette caractéristique existe déjà pour ce vélo
+    
     const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ACaracteristique/GetByIds/${idCaracNum}/${ref}`);
 
     if (checkRes.ok) {
-      // ÉTAPE B1 : MODIFICATION (PUT)
+      
       const putRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ACaracteristique/PutACaracteristique/${idCaracNum}/${ref}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -302,7 +302,7 @@ const addCarac = async () => {
       });
       
       if (!putRes.ok) {
-        // Si ça plante encore en 400, on lit le message exact renvoyé par l'API C# !
+        
         const errText = await putRes.text();
         console.error("Détail de l'erreur PUT 400 :", errText);
         throw new Error("Échec de la modification. Regardez la console F12.");
@@ -310,7 +310,7 @@ const addCarac = async () => {
       showMessage("Caractéristique modifiée avec succès ! (Écrasement)");
 
     } else {
-      // ÉTAPE B2 : CRÉATION (POST)
+      
       const postRes = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ACaracteristique/PostACaracteristique', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -325,7 +325,7 @@ const addCarac = async () => {
       showMessage("Nouvelle caractéristique ajoutée avec succès !");
     }
 
-    // On vide le champ texte
+    
     carac.value.valeur = '';
     
   } catch (err) {
@@ -335,7 +335,7 @@ const addCarac = async () => {
   }
 };
 
-// 3. UPLOAD DE PHOTO
+
 
 const handleFileSelection = (event) => {
   const selectedFile = event.target.files[0];
@@ -351,7 +351,7 @@ const uploadPhoto = async () => {
     formData.append('fichier', photo.value.file);
     formData.append('reference', selectedReference.value);
 
-    // On appelle notre mini-serveur Node.js local au lieu de l'API Azure
+    
     const res = await fetch('http://localhost:4000/upload-local', {
       method: 'POST',
       body: formData
@@ -365,7 +365,7 @@ const uploadPhoto = async () => {
     const data = await res.json();
     showMessage(`Photo enregistrée localement sous le nom ${data.fileName} !`);
     
-    // Reset de l'input file
+    
     photo.value.file = null;
     document.querySelector('.file-input').value = '';
 

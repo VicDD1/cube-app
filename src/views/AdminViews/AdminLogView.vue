@@ -4,7 +4,7 @@ import { useAppStore } from '../stores/useStore'
 
 const appStore = useAppStore()
 
-// --- GESTION CONNEXION ADMIN ---
+
 const isAuthenticated = ref(false)
 const username = ref('')
 const password = ref('')
@@ -25,7 +25,7 @@ const logout = () => {
   password.value = ''
 }
 
-// --- GESTION HISTORIQUE ---
+
 const isOpen = ref(true)
 
 const formatTime = (totalSeconds) => {
@@ -133,7 +133,7 @@ const clearLog = () => {
   font-family: Arial, sans-serif;
 }
 
-/* --- LOGIN --- */
+
 .login-container {
   display: flex;
   justify-content: center;
@@ -204,7 +204,7 @@ const clearLog = () => {
   background: #008fbb;
 }
 
-/* --- DASHBOARD --- */
+
 .admin-dashboard {
   max-width: 900px;
   margin: 0 auto;

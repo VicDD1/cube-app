@@ -46,7 +46,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useAppStore } from '../stores/useStore';
 const store = useAppStore();
 
-// Configuration (À remplacer par votre clé)
+
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const MODEL_NAME = "models/gemini-flash-lite-latest";
@@ -59,10 +59,10 @@ const bikeData = ref(null);
 const messages = computed(() => store.chatMessages);
 const inventoryData = ref(null);
 
-// Récupération automatique au montage du composant
+
 onMounted(async () => {
     try {
-        // Chargement parallèle du catalogue et des inventaires
+        
         const [resArticles, resInventory] = await Promise.all([
             fetch('/api-azure/api/Articles/GetCatalog'),
             fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/ArticleInventaire/GetArticleInventaires')
@@ -71,7 +71,7 @@ onMounted(async () => {
         bikeData.value = await resArticles.json();
         inventoryData.value = await resInventory.json();
         
-        // On met à jour le premier message dans le store si besoin
+        
         if (store.chatMessages.length <= 1) {
             store.chatMessages[0].text = "Je suis prêt ! Je connais nos vélos et leurs stocks en temps réel. Que cherchez-vous ?";
         }
@@ -85,7 +85,7 @@ onMounted(async () => {
 
 const toggleChat = () => { isOpen.value = !isOpen.value; };
 
-// Fonction pour faire défiler automatiquement vers le bas
+
 const scrollToBottom = async () => {
     await nextTick();
     if (messagesContainer.value) {
@@ -94,8 +94,8 @@ const scrollToBottom = async () => {
 };
 const formatMessage = (text) => {
     if (!text) return '';
-  // Supprime les étoiles et dièses du Markdown
-  // Remplace les \n par des balises <br> pour l'affichage HTML
+  
+  
     return text
     .replace(/[#*]/g, '') 
     .replace(/\n/g, '<br>'); 
@@ -111,7 +111,7 @@ const sendMessage = async () => {
     await scrollToBottom();
 
     try {
-    // 1. Données du Store (Utilisateur, Magasin, Panier)
+    
     const user = store.user; 
     const userInfo = user 
         ? `${user.prenomClient} ${user.nomClient} (${user.email})` 
@@ -125,14 +125,14 @@ const sendMessage = async () => {
         ? `Le panier contient ${panierLignes.length} article(s).` 
         : "Le panier est actuellement vide.";
 
-    /// 2. Préparation du catalogue enrichi avec les stocks
+    
 const rawData = Array.isArray(bikeData.value) ? bikeData.value : [];
 const rawInventory = Array.isArray(inventoryData.value) ? inventoryData.value : [];
 
 const simplifiedCatalog = rawData.map(b => {
     const cleanRef = b.reference ? b.reference.trim() : "";
 
-    // On cherche dans l'inventaire avec le bon nom de champ : quantiteStockEnLigne
+    
     const stockItem = rawInventory.find(inv => 
         (inv.reference ? inv.reference.trim() : "") === cleanRef
     );
@@ -142,12 +142,12 @@ const simplifiedCatalog = rawData.map(b => {
         prix: b.prix,
         reference: cleanRef,
         poids: b.poids,
-        // On utilise ici le champ exact de ton image
+        
         stock: stockItem ? stockItem.quantiteStockEnLigne : 0 
     };
 });
 
-    // 3. Prompt System complet
+    
     const promptSystem = `
         Tu es l'assistant expert de la boutique Cube.
         
@@ -171,7 +171,7 @@ const simplifiedCatalog = rawData.map(b => {
         4. LIENS : Pour chaque vélo, ajoute : <a href="http://localhost:5173/produit/LA_REFERENCE" class="btn-product">Voir le produit</a>
         5. RÈGLE D'OR : Utilise le NOM ARTICLE EXACT du catalogue pour tes réponses.
     `;
-        // 4. Appel API Gemini
+        
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${MODEL_NAME}:generateContent?key=${API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -213,7 +213,7 @@ const simplifiedCatalog = rawData.map(b => {
 }
 
 .btn-cart {
-    background-color: #28a745; /* Vert pour le panier */
+    background-color: #28a745; 
 }
 .chatbot-wrapper {
     position: fixed;

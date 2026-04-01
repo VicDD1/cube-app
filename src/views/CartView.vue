@@ -12,24 +12,24 @@ const router = useRouter()
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 
-// --- GESTION DES CODES PROMO ---
+
 const promoCodeInput = ref('')
 const appliedPromo = ref(null)
 const promoMessage = ref({ type: '', text: '' })
 
-// 1. Calcul du sous-total (avant réduction)
+
 const subTotalCart = computed(() => {
   if (!cart.value?.lignePaniers) return 0
   return cart.value.lignePaniers.reduce((acc, item) => acc + (item.prixUnitaire * item.quantiteSelectionnee), 0)
 })
 
-// 2. Calcul du montant de la réduction
+
 const discountAmount = computed(() => {
   if (!appliedPromo.value) return 0
   return subTotalCart.value * appliedPromo.value.pourcentage
 })
 
-// 3. Calcul du total final (après réduction)
+
 const finalTotalCart = computed(() => {
   return subTotalCart.value - discountAmount.value
 })
@@ -63,7 +63,7 @@ const removePromo = () => {
   appliedPromo.value = null
   promoMessage.value = { type: '', text: '' }
 }
-// -------------------------------
+
 
 const fetchCart = async () => {
   loading.value = true
@@ -120,15 +120,15 @@ const updateQuantity = async (item, delta) => {
     appStore.updateCartCount(null)
   } else {
     try {
-      // 1. Création d'un payload strict (uniquement les colonnes de la BDD)
+      
       const payload = {
         idPanier: item.idPanier,
-        reference: item.reference, // On conserve les espaces pour matcher la DB
+        reference: item.reference, 
         tailleSelectionnee: item.tailleSelectionnee,
         quantiteArticle: newQty
       }
 
-      // 2. Encodage de l'URL pour passer les espaces proprement (%20)
+      
       const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${encodeURIComponent(item.reference)}/${encodeURIComponent(item.tailleSelectionnee)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -312,7 +312,7 @@ onMounted(fetchCart)
   color: #1a1a1a;
 }
 
-/* --- EN-TÊTE --- */
+
 .cart-header {
   display: flex;
   align-items: baseline;
@@ -338,7 +338,7 @@ onMounted(fetchCart)
   border-radius: 20px;
 }
 
-/* --- GRILLE PRINCIPALE --- */
+
 .cart-grid { 
   display: grid; 
   grid-template-columns: 1fr 400px; 
@@ -346,7 +346,7 @@ onMounted(fetchCart)
   align-items: start;
 }
 
-/* --- LISTE DES ARTICLES --- */
+
 .cart-items {
   display: flex;
   flex-direction: column;
@@ -429,7 +429,7 @@ onMounted(fetchCart)
   margin-top: 15px;
 }
 
-/* Sélecteur de quantité */
+
 .item-qty { 
   display: flex; 
   align-items: center; 
@@ -467,7 +467,7 @@ onMounted(fetchCart)
   letter-spacing: -0.5px;
 }
 
-/* --- RÉSUMÉ DE COMMANDE --- */
+
 .summary-box { 
   background: #f8f9fa; 
   padding: 35px; 
@@ -503,7 +503,7 @@ onMounted(fetchCart)
   padding-top: 15px;
 }
 
-/* --- CODE PROMO --- */
+
 .promo-section {
   margin: 10px 0;
   padding: 15px 0;
@@ -581,7 +581,7 @@ onMounted(fetchCart)
   color: #10b981;
   font-weight: 700;
 }
-/* ------------------ */
+
 
 .free-badge { 
   color: #fff; 
@@ -649,7 +649,7 @@ onMounted(fetchCart)
   font-weight: 500;
 }
 
-/* --- PANIER VIDE --- */
+
 .empty-cart { 
   text-align: center; 
   padding: 100px 20px; 
@@ -693,20 +693,20 @@ onMounted(fetchCart)
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: #ffffff; /* Fond blanc pour cacher le site derrière */
-  z-index: 9999; /* Garde le loader au premier plan */
+  background-color: #ffffff; 
+  z-index: 9999; 
 }
 
 .bike-wheel {
   width: 60px;
   height: 60px;
-  border: 6px solid #2c3e50; /* Pneu */
+  border: 6px solid #2c3e50; 
   border-radius: 50%;
   position: relative;
   animation: spin 1.2s linear infinite;
 }
 
-/* Rayons de la roue */
+
 .bike-wheel::before {
   content: '';
   position: absolute;
@@ -719,7 +719,7 @@ onMounted(fetchCart)
   border-radius: 50%;
 }
 
-/* Axe central (moyeu) */
+
 .bike-wheel::after {
   content: '';
   position: absolute;
@@ -727,7 +727,7 @@ onMounted(fetchCart)
   left: 50%;
   width: 12px; 
   height: 12px;
-  background-color: rgb(17, 163, 221); /* Couleur d'accentuation */
+  background-color: rgb(17, 163, 221); 
   border-radius: 50%;
   transform: translate(-50%, -50%);
 }
@@ -744,7 +744,7 @@ onMounted(fetchCart)
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
-/* --- RESPONSIVE --- */
+
 @media (max-width: 1024px) {
   .cart-grid { grid-template-columns: 1fr; }
   .summary-box { position: static; margin-top: 40px; }

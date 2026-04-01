@@ -98,18 +98,18 @@
   
   const router = useRouter();
   
-  // États de chargement et messages
+  
   const loading = ref(false);
   const feedback = ref('');
   const isError = ref(false);
   
-  // Données des listes déroulantes
+  
   const modeles = ref([]);
   const couleurs = ref([]);
   const fourches = ref([]);
   const batteries = ref([]);
   
-  // Modèle de formulaire
+  
   const form = ref({
     idModele: '',
     reference: '',
@@ -122,7 +122,7 @@
     resume: ''
   });
   
-  // Récupération de toutes les données nécessaires en parallèle
+  
   onMounted(async () => {
     try {
       const [modRes, coulRes, fourRes, batRes] = await Promise.all([
@@ -145,7 +145,7 @@
   
   const goBack = () => router.push('/espace-commercial');
   
-    // Soumission du formulaire (Optimisée pour laisser la BDD gérer l'héritage Article)
+    
     const submitForm = async () => {
     loading.value = true;
     feedback.value = "";
@@ -154,9 +154,9 @@
     let idResumeCree = null;
 
     try {
-        // ==========================================
-        // ÉTAPE 1 : Créer le Résumé
-        // ==========================================
+        
+        
+        
         const resumeRes = await fetch('https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Resume/PostResume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -170,10 +170,10 @@
         if (!idResumeCree) throw new Error("Impossible de récupérer l'ID du résumé créé.");
 
 
-        // ==========================================
-        // ÉTAPE 2 : Créer la Variante DIRECTEMENT
-        // (La base de données s'occupera d'insérer le parent "Article" automatiquement)
-        // ==========================================
+        
+        
+        
+        
         const variantePayload = {
         reference: form.value.reference.trim(),
         idBatterie: form.value.idBatterie ? parseInt(form.value.idBatterie) : null,
@@ -198,13 +198,13 @@
         throw new Error("Impossible d'insérer la variante. (L'article parent n'a pas pu être généré).");
         }
 
-        // ==========================================
-        // SUCCÈS TOTAL
-        // ==========================================
+        
+        
+        
         isError.value = false;
         feedback.value = "Variante complète (Article inclus) créée avec succès !";
         
-        // On vide le formulaire partiellement pour enchaîner
+        
         form.value.reference = '';
         form.value.idCouleur = '';
         
@@ -215,9 +215,9 @@
         feedback.value = err.message + " Nettoyage en cours...";
         console.error("Crash détecté, déclenchement du Rollback Front-End...");
 
-        // ==========================================
-        // ROLLBACK le résumé)
-        // ==========================================
+        
+        
+        
         try {
         if (idResumeCree) {
             await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Resume/DeleteResume/${idResumeCree}`, { 

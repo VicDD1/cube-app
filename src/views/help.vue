@@ -89,7 +89,7 @@ const toggleAccordion = (id) => {
   color: #1a1a1a;
 }
 
-/* --- EN-TÊTE --- */
+
 .faq-header {
   text-align: center;
   margin-bottom: 70px;
@@ -108,7 +108,7 @@ const toggleAccordion = (id) => {
   font-weight: 500;
 }
 
-/* --- CONTENU FAQ --- */
+
 .faq-category {
   margin-bottom: 60px;
 }
@@ -131,7 +131,7 @@ const toggleAccordion = (id) => {
   margin: 0;
 }
 
-/* --- ACCORDÉONS --- */
+
 .accordion-group {
   display: flex;
   flex-direction: column;
@@ -184,7 +184,7 @@ const toggleAccordion = (id) => {
   margin: 0;
 }
 
-/* --- BLOC CONTACT --- */
+
 .contact-block {
   margin-top: 80px;
   padding: 50px 40px;

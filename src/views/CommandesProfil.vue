@@ -30,7 +30,8 @@ const fetchCommandes = async () => {
     } else {
       const data = await res.json()
       const listeBrute = data.$values || data || []
-      commandes.value = listeBrute.sort((a, b) => new Date(b.dateCommande) - new Date(a.dateCommande))
+      // Tri par idCommande décroissant (le plus grand en premier)
+      commandes.value = listeBrute.sort((a, b) => b.idCommande - a.idCommande)
     }
   } catch (err) {
     error.value = err.message
@@ -239,7 +240,7 @@ const handleDownload = async (cmd) => {
 }
 .status-prepare { background: #eee; color: #333; }
 .status-shipped { background: #111; color: #fff; } 
-.status-delivered { background: #00a8e8; color: #fff; }
+.status-delivered { background: #00a8e8; color: #fff; } 
 .status-cancelled { background: #cc0000; color: #fff; } 
 .status-default { background: #f4f4f4; color: #888; } 
 
@@ -257,7 +258,7 @@ const handleDownload = async (cmd) => {
   font-size: 1.6rem;
   font-weight: 900;
   font-style: italic;
-  color: #cc0000;
+  color: #cc0000; 
 }
 
 .order-actions { display: flex; gap: 15px; align-items: center; }

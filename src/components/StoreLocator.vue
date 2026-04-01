@@ -2,9 +2,9 @@
 import { ref, computed, watch, nextTick, markRaw } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useAppStore } from '../stores/useStore' // L'import vital qui manquait
+import { useAppStore } from '../stores/useStore' 
 
-const appStore = useAppStore() // L'initialisation du store
+const appStore = useAppStore() 
 
 const emit = defineEmits(['storeSelected'])
 
@@ -142,7 +142,7 @@ const magasinsFiltres = computed(() => {
     list = list.filter(m => m.nomAffiche.toLowerCase().includes(q) || m.villeAffiche.toLowerCase().includes(q))
   }
 
-  // Filtrage intelligent "En Stock" connecté au Store Pinia
+  
   if (onlyInStock.value && appStore.currentBikeInventory) {
     list = list.filter(magasin => {
       return appStore.currentBikeInventory.some(tailleInventaire => {
