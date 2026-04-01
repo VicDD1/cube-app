@@ -1,6 +1,8 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useAppStore } from '../stores/useStore'
+
+const isGoogleUser = computed(() => !!appStore.user?.googleId)
 
 const appStore = useAppStore()
 
@@ -37,6 +39,8 @@ onMounted(() => {
     googleId.value = appStore.user.googleId || null
   }
 })
+
+console.log(googleId.value);
 
 // --- LOGIQUE DE VALIDATION ---
 const validateProfile = () => {
@@ -87,19 +91,16 @@ const validateProfile = () => {
   }
 
   if (newPassword.value) {
-    // Si l'utilisateur a commencé à taper un mot de passe
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
-    
-    if (!passwordRegex.test(newPassword.value)) {
-      errors.newPassword = "8 car. min, 1 Maj, 1 Min, 1 Chiffre, 1 Spécial."
-      isValid = false
-    }
-
-    if (newPassword.value !== confirmPassword.value) {
-      errors.confirmPassword = "Les mots de passe ne correspondent pas."
-      isValid = false
-    }
+  if (newPassword.value.length < 5) {
+    errors.newPassword = "5 caractères minimum"
+    isValid = false
   }
+
+  if (newPassword.value !== confirmPassword.value) {
+    errors.confirmPassword = "Les mots de passe ne correspondent pas."
+    isValid = false
+  }
+}
 
   return isValid
 }
@@ -199,13 +200,13 @@ const handleUpdate = async () => {
         </div>
       </div>
 
-      <div class="field-group" v-if="!googleId">
+      <div class="field-group" v-if="!isGoogleUser">
         <label>ADRESSE E-MAIL</label>
         <input type="email" v-model="form.emailClient" :class="{ 'input-error': errors.emailClient }">
         <span class="field-error" v-if="errors.emailClient">{{ errors.emailClient }}</span>
       </div>
 
-      <div class="password-change-section" v-if="!googleId">
+      <div class="password-change-section" v-if="!isGoogleUser">
         <p class="section-title">CHANGER LE MOT DE PASSE (Optionnel)</p>
         <div class="row">
           <div class="field-group">
@@ -270,7 +271,7 @@ const handleUpdate = async () => {
   padding: 40px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.03);
   animation: fadeIn 0.4s ease-out;
-  width: 143%;
+  width: auto;
   box-sizing: border-box;
 }
 

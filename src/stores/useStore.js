@@ -8,6 +8,7 @@ export const useAppStore = defineStore('app', () => {
   const user = ref(null)
   const chatMessages = ref([{ role: 'bot', text: 'Bonjour ! Comment puis-je vous aider ?' }])
   const cartItemCount = ref(0) 
+  const idGoogleClient = ref (null)
   
   // Correction ici : Initialisation du tracker d'activité
   const activityLog = ref([]) 
@@ -18,9 +19,15 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('selectedStore', JSON.stringify(magasin))
   }
 
-  function login(userData) {
+  function login(userData, googleId = null) {
     isConnected.value = true
     user.value = userData
+  
+    if (googleId) {
+      idGoogleClient.value = googleId
+      localStorage.setItem('googleId', googleId)
+    }
+  
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
@@ -52,6 +59,11 @@ export const useAppStore = defineStore('app', () => {
     const savedChat = sessionStorage.getItem('chat_history')
     if (savedChat) {
       chatMessages.value = JSON.parse(savedChat)
+    }
+
+    const googleId = localStorage.getItem('googleId')
+    if (googleId) {
+      idGoogleClient.value = googleId
     }
 
     // Récupération des logs d'activité pour éviter l'erreur undefined
@@ -93,7 +105,8 @@ export const useAppStore = defineStore('app', () => {
     user, 
     cartItemCount,
     chatMessages,
-    activityLog, // Ne pas oublier de l'exposer ici !
+    activityLog, 
+    idGoogleClient,
     setMagasin, 
     login, 
     logout, 

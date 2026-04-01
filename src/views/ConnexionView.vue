@@ -64,167 +64,152 @@ import { useRouter } from 'vue-router';
 import { GoogleSignInButton, decodeCredential } from 'vue3-google-signin';
 import emailjs from '@emailjs/browser';
 
+// --- Store & router ---
 const store = useAppStore();
 const router = useRouter();
 
+// --- États principaux ---
 const email = ref('');
 const password = ref('');
-const showPassword = ref(false); 
+const showPassword = ref(false);
 const loading = ref(false);
 const feedback = ref('');
 const isError = ref(false);
 
-const step = ref(1); 
+const step = ref(1); // 1 = login, 2 = double auth
 const userEnteredCode = ref('');
 const generatedCode = ref('');
 const pendingUser = ref(null);
 
+// --- LOGIN EMAIL/PASSWORD ---
 const handleLogin = async () => {
-    if (loading.value) return;
-    loading.value = true;
-    feedback.value = "VÉRIFICATION...";
-    isError.value = false;
+  if (loading.value) return;
+  loading.value = true;
+  feedback.value = "VÉRIFICATION...";
+  isError.value = false;
 
-    const cleanEmail = email.value.trim().toLowerCase();
-    const cleanPassword = password.value.trim();
+  const cleanEmail = email.value.trim().toLowerCase();
+  const cleanPassword = password.value.trim();
 
-    console.log("LOG 1: Tentative de connexion...");
+  try {
+    const response = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/Login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Email: cleanEmail, Password: cleanPassword })
+    });
 
-    try {
-        const response = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/Login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ Email: cleanEmail, Password: cleanPassword })
-        });
+    if (!response.ok) throw new Error("EMAIL OU MOT DE PASSE INCORRECT.");
 
-        if (!response.ok) throw new Error("EMAIL OU MOT DE PASSE INCORRECT.");
+    const userData = await response.json();
 
-        const userData = await response.json();
-        console.log("LOG 2: Données reçues ->", userData);
-        
-        // Test large de la propriété doubleAuth (casse différente selon l'API)
-        const hasA2F = userData.doubleAuth === true || userData.DoubleAuth === true;
+    const hasA2F = userData.doubleAuth === true || userData.DoubleAuth === true;
 
-        if (hasA2F) {
-            console.log("LOG 3: A2F Détecté ! Envoi mail...");
-            pendingUser.value = userData;
-            generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
+    if (hasA2F) {
+      pendingUser.value = userData;
+      generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
 
-            await emailjs.send(
-                'service_ues7qi8', 
-                'template_by4mad9', 
-                {
-                    to_name: userData.prenomClient || userData.PrenomClient,
-                    to_email: userData.emailClient || userData.EmailClient,
-                    code: generatedCode.value
-                },
-                '9lPdrD2WOpVRdpwJO'
-            );
+      // Envoi du code par mail
+      await emailjs.send(
+        'service_ues7qi8',
+        'template_by4mad9',
+        {
+          to_name: userData.prenomClient || userData.PrenomClient,
+          to_email: userData.emailClient || userData.EmailClient,
+          code: generatedCode.value
+        },
+        '9lPdrD2WOpVRdpwJO'
+      );
 
-            step.value = 2;
-            feedback.value = "CODE ENVOYÉ PAR MAIL.";
-            loading.value = false; 
-            return; // ON S'ARRÊTE ICI
-        } 
-        
-        console.log("LOG 4: Pas d'A2F, connexion directe.");
-        finalizeLogin(userData);
-
-    } catch (err) {
-        isError.value = true;
-        feedback.value = err.message.toUpperCase();
-        console.error("LOG ERREUR:", err);
-    } finally {
-        loading.value = false;
+      step.value = 2;
+      feedback.value = "CODE ENVOYÉ PAR MAIL.";
+      loading.value = false;
+      return;
     }
+
+    finalizeLogin(userData);
+
+  } catch (err) {
+    isError.value = true;
+    feedback.value = err.message.toUpperCase();
+  } finally {
+    loading.value = false;
+  }
 };
 
-// --- ÉTAPE 2 : VÉRIFICATION DU CODE ---
+// --- CONFIRMATION DOUBLE AUTH ---
 const confirmA2F = () => {
-    if (userEnteredCode.value === generatedCode.value) {
-        finalizeLogin(pendingUser.value);
-    } else {
-        isError.value = true;
-        feedback.value = "CODE INCORRECT.";
-    }
+  if (userEnteredCode.value === generatedCode.value) {
+    finalizeLogin(pendingUser.value, pendingUser.value.googleId || null);
+  } else {
+    isError.value = true;
+    feedback.value = "CODE INCORRECT.";
+  }
 };
 
-const finalizeLogin = (userData) => {
-    store.user = userData;
-    store.login(userData);
-    isError.value = false;
-    feedback.value = "CONNEXION RÉUSSIE !";
+// --- FINALISER LOGIN ---
+const finalizeLogin = (userData, googleId = null) => {
+  store.login(userData, googleId);
+  isError.value = false;
+  feedback.value = "CONNEXION RÉUSSIE !";
 
-    setTimeout(() => {
-        const role = (userData.role || userData.Role || 'client').toLowerCase();
-        router.push(role === 'commercial' ? '/espace-commercial' : '/');
-    }, 1500);
+  setTimeout(() => {
+    const role = (userData.role || userData.Role || 'client').toLowerCase();
+    router.push(role === 'commercial' ? '/espace-commercial' : '/');
+  }, 1500);
 };
 
+// --- GOOGLE SIGN-IN ---
 const handleGoogleSuccess = async (response) => {
-    if (loading.value) return;
-    loading.value = true;
-    feedback.value = "VÉRIFICATION GOOGLE...";
-    isError.value = false;
+  if (loading.value) return;
+  loading.value = true;
+  feedback.value = "VÉRIFICATION GOOGLE...";
+  isError.value = false;
 
-    const { credential } = response;
-    const googleUser = decodeCredential(credential);
-    const cleanEmail = googleUser.email.trim().toLowerCase();
+  const { credential } = response;
+  const googleUser = decodeCredential(credential);
+  const googleId = googleUser.id || googleUser.sub;
+  const cleanEmail = googleUser.email.trim().toLowerCase();
 
-    console.log("LOG GOOGLE 1: Email récupéré ->", cleanEmail);
+  try {
+    const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
+    if (!res.ok) throw new Error("COMPTE INEXISTANT. VEUILLEZ CRÉER UN COMPTE.");
 
-    try {
-        // 1. Chercher l'utilisateur dans ta base de données Azure
-        const res = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
-        
-        if (!res.ok) {
-            throw new Error("COMPTE INEXISTANT. VEUILLEZ CRÉER UN COMPTE.");
-        }
+    const dbUser = await res.json();
+    const hasA2F = dbUser.doubleAuth === true || dbUser.DoubleAuth === true;
 
-        const dbUser = await res.json();
-        console.log("LOG GOOGLE 2: Données BDD reçues ->", dbUser);
+    if (hasA2F) {
+      pendingUser.value = { ...dbUser, googleId };
+      generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
 
-        // 2. Vérifier si l'utilisateur BDD a le 2FA activé
-        const hasA2F = dbUser.doubleAuth === true || dbUser.DoubleAuth === true;
+      await emailjs.send(
+        'service_ues7qi8',
+        'template_by4mad9',
+        {
+          to_name: dbUser.prenomClient || googleUser.given_name,
+          to_email: dbUser.emailClient || cleanEmail,
+          code: generatedCode.value
+        },
+        '9lPdrD2WOpVRdpwJO'
+      );
 
-        if (hasA2F) {
-            console.log("LOG GOOGLE 3: A2F Détecté ! Envoi du mail en cours...");
-            pendingUser.value = dbUser;
-            generatedCode.value = Math.floor(100000 + Math.random() * 900000).toString();
-
-            // 3. Envoi du mail via EmailJS
-            await emailjs.send(
-                'service_ues7qi8', 
-                'template_by4mad9', 
-                {
-                    to_name: dbUser.prenomClient || dbUser.PrenomClient || googleUser.given_name,
-                    to_email: dbUser.emailClient || dbUser.EmailClient || cleanEmail,
-                    code: generatedCode.value
-                },
-                '9lPdrD2WOpVRdpwJO'
-            );
-
-            // 4. On passe à l'interface de saisie du code
-            step.value = 2;
-            feedback.value = "CODE ENVOYÉ PAR MAIL.";
-        } else {
-            console.log("LOG GOOGLE 4: Pas d'A2F, connexion directe.");
-            finalizeLogin(dbUser);
-        }
-
-    } catch (err) {
-        isError.value = true;
-        feedback.value = err.message.toUpperCase();
-        console.error("LOG ERREUR GOOGLE:", err);
-    } finally {
-        loading.value = false;
+      step.value = 2;
+      feedback.value = "CODE ENVOYÉ PAR MAIL.";
+    } else {
+      finalizeLogin(dbUser, googleId);
     }
+
+  } catch (err) {
+    isError.value = true;
+    feedback.value = err.message.toUpperCase();
+  } finally {
+    loading.value = false;
+  }
 };
 
 const handleGoogleError = () => {
-    isError.value = true;
-    feedback.value = "ÉCHEC DE L'AUTHENTIFICATION GOOGLE.";
-    loading.value = false;
+  isError.value = true;
+  feedback.value = "ÉCHEC DE L'AUTHENTIFICATION GOOGLE.";
+  loading.value = false;
 };
 </script>
 
