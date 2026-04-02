@@ -111,8 +111,6 @@ const handleSubmit = async () => {
   feedback.value = "";
   isError.value = false;
 
-  
-  
   const payload = {
     nomCategorie: newCategoryName.value.trim(),
     catIdCategorie: categoryType.value === 'main' ? null : parseInt(selectedParent.value)
@@ -136,15 +134,12 @@ const handleSubmit = async () => {
       ? "CATÉGORIE PRINCIPALE AJOUTÉE AVEC SUCCÈS !" 
       : "SOUS-CATÉGORIE AJOUTÉE AVEC SUCCÈS !";
     
-    
     newCategoryName.value = '';
-    
     
     if (categoryType.value === 'main') {
       await fetchMainCategories();
     }
 
-    
     setTimeout(() => {
       if (!isError.value) feedback.value = "";
     }, 3000);
@@ -166,12 +161,12 @@ const handleSubmit = async () => {
 }
 
 .admin-page {
-  width: 100%;
+  width: 100vw;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding-top: 140px; 
-  padding-bottom: 60px; 
+  align-items: center; 
+  padding: 20px; 
   background-color: #f4f4f4;
   font-family: 'CubeFont', sans-serif;
   box-sizing: border-box;
@@ -185,6 +180,7 @@ const handleSubmit = async () => {
   box-shadow: 0 20px 50px rgba(0,0,0,0.1);
   border-top: 5px solid #00a8e8;
   position: relative;
+  box-sizing: border-box;
 }
 
 .back-btn {

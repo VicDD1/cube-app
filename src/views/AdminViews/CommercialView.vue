@@ -65,7 +65,6 @@
       router.push('/'); 
     };
   </script>
-  
   <style scoped>
   @font-face {
     font-family: 'CubeFont';
@@ -73,15 +72,16 @@
   }
   
   .commercial-page {
-    width: 100%;
+    width: 100vw; 
+    min-height: 100vh; 
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 140px; 
-    padding-bottom: 60px; 
-    background-color: #f4f4f4;
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center; 
+    background-color: #f4f4f4; 
     font-family: 'CubeFont', sans-serif;
     box-sizing: border-box;
+    padding: 20px; 
   }
   
   .dashboard-card {
@@ -91,6 +91,7 @@
     padding: 40px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.1);
     border-top: 5px solid #00a8e8;
+    box-sizing: border-box;
   }
   
   .card-header h1 {
@@ -140,20 +141,19 @@
     cursor: pointer;
     background-color: #fff;
   }
-
+  
   .active-btn:hover {
     background-color: #00a8e8;
     color: #fff;
     border-color: #00a8e8;
   }
-
   
   .logout-section {
     margin-top: 40px;
     display: flex;
     justify-content: center;
   }
-
+  
   .logout-btn {
     padding: 12px 30px;
     background-color: transparent;
@@ -166,7 +166,7 @@
     cursor: pointer;
     transition: all 0.3s ease;
   }
-
+  
   .logout-btn:hover {
     background-color: #cc0000;
     color: #fff;
@@ -178,7 +178,6 @@
     }
     .dashboard-card {
       padding: 25px;
-      width: 95%;
     }
   }
   </style>

@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from './stores/useStore'
 
@@ -14,11 +14,14 @@ const appStore = useAppStore()
 const showCookies = ref(false)
 const showChatbot = ref(false)
 
+// --- NOUVEAUTÉ : On vérifie si l'utilisateur est un commercial ---
+const isCommercial = computed(() => {
+  const role = appStore.user?.role || appStore.user?.Role;
+  return role?.toLowerCase() === 'commercial';
+})
 
 let timerInterval = null
 const currentSessionIndex = ref(null)
-
-
 
 const startTracking = (path) => {
   const newEntry = {
@@ -30,14 +33,12 @@ const startTracking = (path) => {
   appStore.activityLog.push(newEntry)
   currentSessionIndex.value = appStore.activityLog.length - 1
 
-  
   timerInterval = setInterval(() => {
     if (currentSessionIndex.value !== null) {
       appStore.activityLog[currentSessionIndex.value].timeSpentInSeconds++
     }
   }, 1000)
 }
-
 
 const stopTracking = () => {
   if (timerInterval) {
@@ -46,11 +47,9 @@ const stopTracking = () => {
   }
 }
 
-
 watch(
   () => route.path,
   (newPath) => {
-    
     const savedCookies = localStorage.getItem('cube_cookie_consent')
     let hasConsented = false
     
@@ -63,15 +62,12 @@ watch(
       }
     }
 
-    
     if (hasConsented) {
       stopTracking() 
       startTracking(newPath) 
       
-      
       localStorage.setItem('cube_activity_log', JSON.stringify(appStore.activityLog))
     } else {
-      
       stopTracking()
     }
   },
@@ -79,23 +75,18 @@ watch(
 )
 
 onMounted(() => {
-  
   const hasAnswered = localStorage.getItem('cube_cookie_consent')
   
   if (!hasAnswered) {
-    
-    
     setTimeout(() => {
       showCookies.value = true
       showChatbot.value = true
     }, 3000)
   } else {
-    
     showCookies.value = true
     showChatbot.value = true
   }
 })
-
 
 onUnmounted(() => {
   stopTracking()
@@ -103,25 +94,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Header />
+  <Header v-if="!isCommercial" />
   
   <main class="main-content">
     <router-view />
-    <ChatBot v-if="showChatbot" />
+    <ChatBot v-if="showChatbot && !isCommercial" />
   </main>
 
-  <Footer v-if="!['login', 'creer-compte', 'connexion-choice'].includes($route.name)" />
+  <Footer v-if="!isCommercial && !['login', 'creer-compte', 'connexion-choice'].includes($route.name)" />
 
   <CookieConsent v-if="showCookies" />
 </template>
 
 <style>
-
 body {
   margin: 0;
   padding: 0;
 }
-
 
 #app {
   display: flex;

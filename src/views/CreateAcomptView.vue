@@ -7,58 +7,60 @@
       </header>
       
       <form v-if="step === 1" @submit.prevent="handleRegistration">
-        <div class="row">
-          <div class="field-group">
-            <label>NOM</label>
-            <input type="text" v-model="form.nom" :class="{ 'input-error': errors.nom }" placeholder="DUPONT">
-            <span class="field-error" v-if="errors.nom">{{ errors.nom }}</span>
+        
+        <div v-if="!isGoogleFlow">
+          <div class="row">
+            <div class="field-group">
+              <label>NOM</label>
+              <input type="text" v-model="form.nom" :class="{ 'input-error': errors.nom }" placeholder="DUPONT">
+              <span class="field-error" v-if="errors.nom">{{ errors.nom }}</span>
+            </div>
+            <div class="field-group">
+              <label>PRÉNOM</label>
+              <input type="text" v-model="form.prenomClient" :class="{ 'input-error': errors.prenomClient }" placeholder="JEAN">
+              <span class="field-error" v-if="errors.prenomClient">{{ errors.prenomClient }}</span>
+            </div>
           </div>
-          <div class="field-group">
-            <label>PRÉNOM</label>
-            <input type="text" v-model="form.prenomClient" :class="{ 'input-error': errors.prenomClient }" placeholder="JEAN">
-            <span class="field-error" v-if="errors.prenomClient">{{ errors.prenomClient }}</span>
-          </div>
-        </div>
 
+          <div class="field-group">
+            <label>ADRESSE EMAIL</label>
+            <input type="email" v-model="form.email" :class="{ 'input-error': errors.email }" placeholder="NOM@EXEMPLE.COM">
+            <span class="field-error" v-if="errors.email">{{ errors.email }}</span>
+          </div>
+          
+          <div class="field-group">
+            <label>MOT DE PASSE</label>
+            <div class="input-wrapper">
+              <input 
+                :type="showPassword ? 'text' : 'password'" 
+                v-model="form.password" 
+                :class="{ 'input-error': errors.password }"
+                placeholder="••••••••" 
+              >
+              <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
+                {{ showPassword ? 'CACHER' : 'VOIR' }}
+              </button>
+            </div>
+            <span class="field-error" v-if="errors.password">{{ errors.password }}</span>
+          </div>
+          
+          <div class="field-group">
+            <label>CONFIRMER LE MOT DE PASSE</label>
+            <div class="input-wrapper">
+              <input 
+                :type="showPassword ? 'text' : 'password'" 
+                v-model="confirmPassword" 
+                :class="{ 'input-error': errors.confirmPassword }"
+                placeholder="••••••••" 
+              >
+            </div>
+            <span class="field-error" v-if="errors.confirmPassword">{{ errors.confirmPassword }}</span>
+          </div>
+        </div> 
         <div class="field-group">
           <label>DATE DE NAISSANCE</label>
           <input type="date" v-model="form.dateNaissance" :class="{ 'input-error': errors.dateNaissance }">
           <span class="field-error" v-if="errors.dateNaissance">{{ errors.dateNaissance }}</span>
-        </div>
-
-        <div class="field-group">
-          <label>ADRESSE EMAIL</label>
-          <input type="email" v-model="form.email" :class="{ 'input-error': errors.email }" placeholder="NOM@EXEMPLE.COM">
-          <span class="field-error" v-if="errors.email">{{ errors.email }}</span>
-        </div>
-        
-        <div class="field-group">
-          <label>MOT DE PASSE</label>
-          <div class="input-wrapper">
-            <input 
-              :type="showPassword ? 'text' : 'password'" 
-              v-model="form.password" 
-              :class="{ 'input-error': errors.password }"
-              placeholder="••••••••" 
-            >
-            <button type="button" class="toggle-btn" @click="showPassword = !showPassword">
-              {{ showPassword ? 'CACHER' : 'VOIR' }}
-            </button>
-          </div>
-          <span class="field-error" v-if="errors.password">{{ errors.password }}</span>
-        </div>
-        
-        <div class="field-group">
-          <label>CONFIRMER LE MOT DE PASSE</label>
-          <div class="input-wrapper">
-            <input 
-              :type="showPassword ? 'text' : 'password'" 
-              v-model="confirmPassword" 
-              :class="{ 'input-error': errors.confirmPassword }"
-              placeholder="••••••••" 
-            >
-          </div>
-          <span class="field-error" v-if="errors.confirmPassword">{{ errors.confirmPassword }}</span>
         </div>
 
         <div class="field-group">
@@ -143,15 +145,16 @@
           {{ loading ? 'ENVOI DU CODE...' : 'RECEVOIR MON CODE' }}
         </button>
 
-        <div class="google-divider">
-          <span>OU</span>
-        </div>
-
-        <div class="google-auth-container">
-          <GoogleSignInButton
-            @success="handleGoogleSuccess"
-            @error="handleGoogleError"
-          />
+        <div v-if="!isGoogleFlow">
+          <div class="google-divider">
+            <span>OU</span>
+          </div>
+          <div class="google-auth-container">
+            <GoogleSignInButton
+              @success="handleGoogleSuccess"
+              @error="handleGoogleError"
+            />
+          </div>
         </div>
       </form>
 
@@ -202,9 +205,9 @@ import { useValidation } from '@/composables/useValidation';
 
 const router = useRouter();
 
-
 const { errors, validateRegistration } = useValidation();
 
+const isGoogleFlow = ref(false); 
 
 const step = ref(1); 
 const loading = ref(false);
@@ -255,21 +258,24 @@ const handleGoogleSuccess = async (response) => {
 
   try {
     const cleanEmail = userData.email.trim().toLowerCase();
-    
     const checkRes = await fetch(`https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api/Client/GetByEmail/${encodeURIComponent(cleanEmail)}`);
     
     if (checkRes.ok) {
       feedback.value = "CONNEXION RÉUSSIE !";
       setTimeout(() => router.push('/dashboard'), 1500);
     } else {
+      isGoogleFlow.value = true; 
+
       form.email = cleanEmail;
       form.nom = userData.family_name ? userData.family_name.toUpperCase() : '';
       form.prenomClient = userData.given_name || '';
       
+      // On enlève la fausse date de naissance ici, car le champ est maintenant visible et requis
+      
       form.password = Math.random().toString(36).slice(-10) + "A1!"; 
       confirmPassword.value = form.password;
 
-      feedback.value = "COMPTE GOOGLE RECONNU. VEUILLEZ COMPLÉTER VOTRE ADRESSE.";
+      feedback.value = "COMPTE GOOGLE RECONNU. VEUILLEZ COMPLÉTER LES INFORMATIONS MANQUANTES.";
     }
   } catch (err) {
     isError.value = true;
@@ -315,9 +321,7 @@ const selectAdresse = (feature, type) => {
 
 const handleRegistration = async () => {
 
-
   const isValid = validateRegistration(form, confirmPassword.value, sameAddress.value);
-
 
   if (!isValid) {
     isError.value = true;

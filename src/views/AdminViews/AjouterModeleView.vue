@@ -281,13 +281,13 @@
 
             if (!res.ok) {
                 const errTxt = await res.text();
-                console.error(`❌ Erreur Taille ${idTaille}, Géo ${idGeometrie}:`, errTxt);
+                console.error(`Erreur Taille ${idTaille}, Géo ${idGeometrie}:`, errTxt);
                 errorCount++;
             } else {
                 successCount++;
             }
             } catch (e) {
-            console.error(`❌ Erreur réseau pour Taille ${idTaille}:`, e);
+            console.error(`Erreur réseau pour Taille ${idTaille}:`, e);
             errorCount++;
             }
         }
@@ -323,216 +323,218 @@
   </script>
   
   <style scoped>
-  @font-face {
-    font-family: 'CubeFont';
-    src: url('@/assets/fonts/font.woff2') format('woff2');
-  }
-  
-  .admin-page {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 140px; 
-    padding-bottom: 60px; 
-    background-color: #f4f4f4;
-    font-family: 'CubeFont', sans-serif;
-    box-sizing: border-box;
-  }
-  
-  .admin-card {
-    background: #fff;
-    width: 100%;
-    max-width: 500px;
-    padding: 40px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.1);
-    border-top: 5px solid #00a8e8;
-    position: relative;
-  }
-  
-  .wide-card {
-    max-width: 700px; 
-  }
-  
-  .back-btn {
-    background: none;
-    border: none;
-    color: #777;
-    font-family: 'CubeFont', sans-serif;
-    font-weight: 800;
-    font-size: 11px;
-    cursor: pointer;
-    margin-bottom: 25px;
-    padding: 0;
-    display: inline-block;
-    transition: color 0.2s ease;
-  }
-  
-  .back-btn:hover { color: #00a8e8; }
-  
-  .card-header h1 {
-    font-size: 22px;
-    font-weight: 800;
-    font-style: italic;
-    margin: 0;
-    text-align: center;
-  }
-  
-  .step-indicator {
-    text-align: center;
-    font-size: 12px;
-    color: #00a8e8;
-    font-weight: bold;
-    margin-top: -15px;
-    margin-bottom: 25px;
-  }
-  
-  .separator {
-    width: 40px;
-    height: 4px;
-    background: #000;
-    margin: 15px auto 30px auto;
-  }
-  
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-  }
-  
-  .geometry-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    background: #f9f9f9;
-    padding: 15px;
-    border: 1px solid #eee;
-    margin-bottom: 20px;
-  }
-  
-  .field-group { margin-bottom: 18px; }
-  
-  label {
-    display: block;
-    font-size: 11px;
-    font-weight: 800;
-    margin-bottom: 6px;
-    color: #555;
-  }
-  
-  input[type="text"], input[type="number"], textarea, .cube-select {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    font-family: 'CubeFont', sans-serif;
-    font-size: 13px;
-    box-sizing: border-box;
-    outline: none;
-    background: #fcfcfc;
-    resize: vertical;
-  }
-  
-  input:focus, textarea:focus, .cube-select:focus {
-    border-color: #00a8e8;
-    background: #fff;
-  }
-  
-  .cube-select {
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 1rem center;
-    background-size: 1em;
-  }
-  
-  .radio-container {
-    display: flex;
-    gap: 20px;
-    margin-top: 5px;
-  }
-  
-  .radio-label {
-    display: flex;
-    align-items: center;
-    font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-  }
-  
-  .radio-label input[type="radio"] {
-    margin-right: 8px;
-    accent-color: #00a8e8;
-  }
-  
-  .submit-btn {
-    width: 100%;
-    padding: 16px;
-    background-color: #000;
-    color: #fff;
-    border: none;
-    font-family: 'CubeFont', sans-serif;
-    font-weight: 800;
-    font-style: italic;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: background-color 0.3s ease;
-  }
-  
-  .submit-btn:hover:not(:disabled) { background-color: #00a8e8; }
-  .submit-btn:disabled { background-color: #ccc; cursor: not-allowed; }
-  
-  .action-btn {
-    width: 100%;
-    padding: 15px;
-    background-color: #fff;
-    color: #000;
-    border: 1px solid #000;
-    font-family: 'CubeFont', sans-serif;
-    font-weight: 800;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  }
-  .action-btn:hover {
-    background-color: #000;
-    color: #fff;
-  }
-  
-  .summary-box {
-    margin-top: 15px;
-    padding: 10px;
-    background-color: #e6f7ff;
-    border: 1px solid #00a8e8;
-    border-radius: 4px;
-    font-size: 12px;
-  }
-  
-  .taille-badge {
-    display: inline-block;
-    background: #000;
-    color: white;
-    padding: 3px 8px;
-    margin-right: 5px;
-    border-radius: 12px;
-    font-weight: bold;
-  }
-  
-  .message {
-    margin-bottom: 20px;
-    padding: 12px;
-    font-size: 12px;
-    text-align: center;
-    font-weight: 800;
-  }
-  .error { background-color: #fee2e2; color: #dc2626; border: 1px solid #dc2626; }
-  .success { background-color: #ecfdf5; color: #059669; border: 1px solid #059669; }
-  
-  .fade-enter-active, .fade-leave-active { transition: opacity 0.4s; }
-  .fade-enter-from, .fade-leave-to { opacity: 0; }
-  
-  @media (max-width: 600px) {
-    .form-grid, .geometry-grid { grid-template-columns: 1fr; }
-    .admin-card { padding: 25px; width: 95%; }
-  }
-  </style>
+@font-face {
+  font-family: 'CubeFont';
+  src: url('@/assets/fonts/font.woff2') format('woff2');
+}
+
+.admin-page {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; 
+  align-items: center; 
+  background-color: #f4f4f4; 
+  font-family: 'CubeFont', sans-serif;
+  box-sizing: border-box;
+  padding: 20px; 
+}
+
+.admin-card {
+  background: #fff;
+  width: 100%;
+  max-width: 500px;
+  padding: 40px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+  border-top: 5px solid #00a8e8;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.wide-card {
+  max-width: 700px; 
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #777;
+  font-family: 'CubeFont', sans-serif;
+  font-weight: 800;
+  font-size: 11px;
+  cursor: pointer;
+  margin-bottom: 25px;
+  padding: 0;
+  display: inline-block;
+  transition: color 0.2s ease;
+}
+
+.back-btn:hover { color: #00a8e8; }
+
+.card-header h1 {
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  margin: 0;
+  text-align: center;
+}
+
+.step-indicator {
+  text-align: center;
+  font-size: 12px;
+  color: #00a8e8;
+  font-weight: bold;
+  margin-top: -15px;
+  margin-bottom: 25px;
+}
+
+.separator {
+  width: 40px;
+  height: 4px;
+  background: #000;
+  margin: 15px auto 30px auto;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.geometry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  background: #f9f9f9;
+  padding: 15px;
+  border: 1px solid #eee;
+  margin-bottom: 20px;
+}
+
+.field-group { margin-bottom: 18px; }
+
+label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: #555;
+}
+
+input[type="text"], input[type="number"], textarea, .cube-select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  font-family: 'CubeFont', sans-serif;
+  font-size: 13px;
+  box-sizing: border-box;
+  outline: none;
+  background: #fcfcfc;
+  resize: vertical;
+}
+
+input:focus, textarea:focus, .cube-select:focus {
+  border-color: #00a8e8;
+  background: #fff;
+}
+
+.cube-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1em;
+}
+
+.radio-container {
+  display: flex;
+  gap: 20px;
+  margin-top: 5px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+  margin-right: 8px;
+  accent-color: #00a8e8;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 16px;
+  background-color: #000;
+  color: #fff;
+  border: none;
+  font-family: 'CubeFont', sans-serif;
+  font-weight: 800;
+  font-style: italic;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.3s ease;
+}
+
+.submit-btn:hover:not(:disabled) { background-color: #00a8e8; }
+.submit-btn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+.action-btn {
+  width: 100%;
+  padding: 15px;
+  background-color: #fff;
+  color: #000;
+  border: 1px solid #000;
+  font-family: 'CubeFont', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.action-btn:hover {
+  background-color: #000;
+  color: #fff;
+}
+
+.summary-box {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #e6f7ff;
+  border: 1px solid #00a8e8;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.taille-badge {
+  display: inline-block;
+  background: #000;
+  color: white;
+  padding: 3px 8px;
+  margin-right: 5px;
+  border-radius: 12px;
+  font-weight: bold;
+}
+
+.message {
+  margin-bottom: 20px;
+  padding: 12px;
+  font-size: 12px;
+  text-align: center;
+  font-weight: 800;
+}
+.error { background-color: #fee2e2; color: #dc2626; border: 1px solid #dc2626; }
+.success { background-color: #ecfdf5; color: #059669; border: 1px solid #059669; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 600px) {
+  .form-grid, .geometry-grid { grid-template-columns: 1fr; }
+  .admin-card { padding: 25px; width: 95%; }
+}
+</style>

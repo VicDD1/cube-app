@@ -24,7 +24,7 @@
         <div v-if="selectedReference" class="panels-container">
           
           <div class="action-panel">
-            <h3>📦 AJOUTER DU STOCK WEB</h3>
+            <h3>AJOUTER DU STOCK WEB</h3>
             <form @submit.prevent="addStock" class="panel-form">
               <div class="field-group">
                 <label>TAILLE</label>
@@ -46,7 +46,7 @@
           </div>
   
           <div class="action-panel">
-            <h3>⚙️ AJOUTER CARACTÉRISTIQUE</h3>
+            <h3>AJOUTER CARACTÉRISTIQUE</h3>
             <form @submit.prevent="addCarac" class="panel-form">
               <div class="field-group">
                 <label>CARACTÉRISTIQUE</label>
@@ -68,7 +68,7 @@
           </div>
   
           <div class="action-panel">
-          <h3>📸 TÉLÉVERSER UNE PHOTO</h3>
+          <h3>TÉLÉVERSER UNE PHOTO</h3>
           <p class="help-text">La photo sera convertie en .webp et ajoutée dans :<br> <code>src/assets/images/VELOS/{{ selectedReference }}/</code></p>
           <form @submit.prevent="uploadPhoto" class="panel-form">
             <div class="field-group">
@@ -377,7 +377,6 @@ const uploadPhoto = async () => {
   }
 };
   </script>
-  
   <style scoped>
   @font-face {
     font-family: 'CubeFont';
@@ -385,15 +384,16 @@ const uploadPhoto = async () => {
   }
   
   .admin-page {
-    width: 100%;
+    width: 100vw;
+    min-height: 100vh;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 140px; 
-    padding-bottom: 60px; 
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center; 
     background-color: #f4f4f4;
     font-family: 'CubeFont', sans-serif;
     box-sizing: border-box;
+    padding: 20px; 
   }
   
   .admin-card {
@@ -404,6 +404,7 @@ const uploadPhoto = async () => {
     box-shadow: 0 20px 50px rgba(0,0,0,0.1);
     border-top: 5px solid #00a8e8;
     position: relative;
+    box-sizing: border-box;
   }
   
   .wide-card {

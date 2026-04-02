@@ -149,6 +149,17 @@ router.beforeEach((to, from, next) => {
         store.loadPersistedStore()
     }
 
+    // Récupération sécurisée du rôle de l'utilisateur
+    const userRole = (store.user?.role || store.user?.Role || '').toLowerCase();
+
+    // --- NOUVEAU VERROU POUR LE COMMERCIAL ---
+    // Si un commercial est connecté et qu'il tente d'aller sur une page hors de sa zone :
+    if (store.isConnected && userRole === 'commercial') {
+        if (!to.path.startsWith('/espace-commercial')) {
+            return next('/espace-commercial'); // On le renvoie de force dans sa zone
+        }
+    }
+
     if (to.meta.requiresAuth && !store.isConnected) {
         return next('/connexion') 
     }
@@ -158,7 +169,6 @@ router.beforeEach((to, from, next) => {
     }
 
     if (to.meta.requiresAuth && to.meta.requiresRole) {
-        const userRole = (store.user?.role || store.user?.Role || '').toLowerCase();
         const expectedRole = to.meta.requiresRole.toLowerCase();
 
         if (userRole !== expectedRole) {

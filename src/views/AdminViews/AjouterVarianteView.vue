@@ -236,7 +236,6 @@
     }
     };
   </script>
-  
   <style scoped>
   @font-face {
     font-family: 'CubeFont';
@@ -244,15 +243,17 @@
   }
   
   .admin-page {
-    width: 100%;
+    width: 100vw; 
+    min-height: 100vh; 
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding-top: 140px; 
-    padding-bottom: 60px; 
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center; 
     background-color: #f4f4f4;
     font-family: 'CubeFont', sans-serif;
     box-sizing: border-box;
+    padding: 40px 20px;
+    overflow-y: auto; 
   }
   
   .admin-card {
@@ -263,6 +264,7 @@
     box-shadow: 0 20px 50px rgba(0,0,0,0.1);
     border-top: 5px solid #00a8e8;
     position: relative;
+    box-sizing: border-box;
   }
   
   .wide-card {
