@@ -70,7 +70,8 @@ describe('ConnexionView.vue', () => {
     // On attend que la promesse fetch se résolve
     await new Promise(resolve => setTimeout(resolve, 0))
     
-    expect(wrapper.text()).toContain('IDENTIFIANTS INCORRECTS')
+    // CORRECTION : Le texte exact affiché par votre composant
+    expect(wrapper.text()).toContain('EMAIL OU MOT DE PASSE INCORRECT.')
     expect(loginMock).not.toHaveBeenCalled()
   })
 })

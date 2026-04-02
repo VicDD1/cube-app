@@ -6,11 +6,9 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
-      // Simule un navigateur
-      environment: 'jsdom',
-      // Permet d'utiliser "describe", "it", "expect" sans import
+      // On utilise happy-dom au lieu de jsdom
+      environment: 'happy-dom',
       globals: true,
-      // Exclut Playwright et les dossiers inutiles
       exclude: ['node_modules', 'dist', 'e2e/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
     }
