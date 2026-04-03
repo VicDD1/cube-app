@@ -30,7 +30,7 @@ const fetchCommandes = async () => {
     } else {
       const data = await res.json()
       const listeBrute = data.$values || data || []
-      // Tri par idCommande décroissant (le plus grand en premier)
+      
       commandes.value = listeBrute.sort((a, b) => b.idCommande - a.idCommande)
     }
   } catch (err) {

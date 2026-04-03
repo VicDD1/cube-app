@@ -14,7 +14,7 @@ const appStore = useAppStore()
 const showCookies = ref(false)
 const showChatbot = ref(false)
 
-// --- NOUVEAUTÉ : On vérifie si l'utilisateur est un commercial ---
+
 const isCommercial = computed(() => {
   const role = appStore.user?.role || appStore.user?.Role;
   return role?.toLowerCase() === 'commercial';

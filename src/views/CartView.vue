@@ -12,58 +12,14 @@ const router = useRouter()
 
 const API_BASE = 'https://apicube-epbsakembjgcghcp.francecentral-01.azurewebsites.net/api'
 
-
-const promoCodeInput = ref('')
-const appliedPromo = ref(null)
-const promoMessage = ref({ type: '', text: '' })
-
-
 const subTotalCart = computed(() => {
   if (!cart.value?.lignePaniers) return 0
   return cart.value.lignePaniers.reduce((acc, item) => acc + (item.prixUnitaire * item.quantiteSelectionnee), 0)
 })
 
-
-const discountAmount = computed(() => {
-  if (!appliedPromo.value) return 0
-  return subTotalCart.value * appliedPromo.value.pourcentage
-})
-
-
 const finalTotalCart = computed(() => {
-  return subTotalCart.value - discountAmount.value
+  return subTotalCart.value
 })
-
-const applyPromoCode = async () => {
-  promoMessage.value = { type: '', text: '' }
-  const code = promoCodeInput.value.trim().toUpperCase()
-  
-  if (!code) return
-  
-  try {
-    const res = await fetch(`${API_BASE}/CodePromo/GetByCode/${code}`)
-    if (res.ok) {
-      const data = await res.json()
-      appliedPromo.value = {
-        code: data.idCodepromo.trim(),
-        pourcentage: data.pourcentage
-      }
-      promoMessage.value = { type: 'success', text: `Code appliqué : -${data.pourcentage * 100}%` }
-      promoCodeInput.value = ''
-    } else {
-      promoMessage.value = { type: 'error', text: 'Code promo invalide ou expiré.' }
-    }
-  } catch (err) {
-    console.error("Erreur promo:", err)
-    promoMessage.value = { type: 'error', text: 'Erreur lors de la vérification du code.' }
-  }
-}
-
-const removePromo = () => {
-  appliedPromo.value = null
-  promoMessage.value = { type: '', text: '' }
-}
-
 
 const fetchCart = async () => {
   loading.value = true
@@ -90,8 +46,6 @@ const fetchCart = async () => {
           if (artRes.ok) {
             const artData = await artRes.json()
             item.nomArticle = artData.nomArticle
-            
-            
             item.prixUnitaire = artData.prix
             item.quantiteSelectionnee = item.quantiteArticle || item.quantiteSelectionnee
           }
@@ -120,7 +74,6 @@ const updateQuantity = async (item, delta) => {
     appStore.updateCartCount(null)
   } else {
     try {
-      
       const payload = {
         idPanier: item.idPanier,
         reference: item.reference, 
@@ -128,7 +81,6 @@ const updateQuantity = async (item, delta) => {
         quantiteArticle: newQty
       }
 
-      
       const response = await fetch(`${API_BASE}/LignePanier/PutLignePanier/${item.idPanier}/${encodeURIComponent(item.reference)}/${encodeURIComponent(item.tailleSelectionnee)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -187,7 +139,6 @@ const handleCheckout = () => {
   }
 }
 
-
 onMounted(fetchCart)
 </script>
 
@@ -199,9 +150,9 @@ onMounted(fetchCart)
     </div>
 
     <div v-if="loading" class="loader-container">
-    <div class="bike-wheel"></div>
-    <div class="loading-text">CHARGEMENT...</div>
-   </div>
+      <div class="bike-wheel"></div>
+      <div class="loading-text">CHARGEMENT...</div>
+    </div>
 
     <div v-else-if="cart && cart.lignePaniers.length > 0" class="cart-grid">
       <div class="cart-items-container">
@@ -248,28 +199,6 @@ onMounted(fetchCart)
               <span>{{ (subTotalCart - (subTotalCart / 1.2)).toFixed(2) }} €</span>
             </div>
 
-            <div class="promo-section">
-              <div v-if="!appliedPromo" class="promo-input-group">
-                <input 
-                  v-model="promoCodeInput" 
-                  type="text" 
-                  placeholder="Code promo" 
-                  @keyup.enter="applyPromoCode"
-                />
-                <button @click="applyPromoCode">OK</button>
-              </div>
-              <div v-else class="applied-promo">
-                <span>Code <strong>{{ appliedPromo.code }}</strong> (-{{ appliedPromo.pourcentage * 100 }}%)</span>
-                <button @click="removePromo" class="remove-promo-btn" title="Retirer le code">✕</button>
-              </div>
-
-            </div>
-
-            <div v-if="appliedPromo" class="summary-row discount-row">
-              <span>Remise promotionnelle</span>
-              <span>- {{ discountAmount.toFixed(2) }} €</span>
-            </div>
-
             <div class="summary-row delivery">
               <span>Frais de livraison</span>
               <span class="free-badge">OFFERTS</span>
@@ -312,7 +241,6 @@ onMounted(fetchCart)
   color: #1a1a1a;
 }
 
-
 .cart-header {
   display: flex;
   align-items: baseline;
@@ -321,6 +249,7 @@ onMounted(fetchCart)
   border-bottom: 2px solid #f0f0f0;
   padding-bottom: 15px;
 }
+
 .cart-title { 
   font-size: 2.8rem; 
   font-weight: 900; 
@@ -329,6 +258,7 @@ onMounted(fetchCart)
   letter-spacing: -1px;
   margin: 0;
 }
+
 .item-count {
   font-size: 1.1rem;
   font-weight: 600;
@@ -338,14 +268,12 @@ onMounted(fetchCart)
   border-radius: 20px;
 }
 
-
 .cart-grid { 
   display: grid; 
   grid-template-columns: 1fr 400px; 
   gap: 60px; 
   align-items: start;
 }
-
 
 .cart-items {
   display: flex;
@@ -362,6 +290,7 @@ onMounted(fetchCart)
   border-radius: 12px;
   transition: all 0.3s ease;
 }
+
 .cart-item:hover {
   border-color: #ddd;
   box-shadow: 0 8px 30px rgba(0,0,0,0.04);
@@ -378,6 +307,7 @@ onMounted(fetchCart)
   padding: 15px;
   flex-shrink: 0;
 }
+
 .item-img { 
   width: 100%; 
   height: 100%; 
@@ -398,11 +328,13 @@ onMounted(fetchCart)
   text-transform: uppercase;
   letter-spacing: -0.5px;
 }
+
 .item-size { 
   font-size: 0.95rem; 
   color: #666; 
   margin: 0 0 12px 0; 
 }
+
 .item-size span {
   font-weight: 600;
   color: #000;
@@ -420,6 +352,7 @@ onMounted(fetchCart)
   text-underline-offset: 3px;
   transition: color 0.2s;
 }
+
 .remove-btn:hover { color: #ff3333; }
 
 .item-actions {
@@ -429,7 +362,6 @@ onMounted(fetchCart)
   margin-top: 15px;
 }
 
-
 .item-qty { 
   display: flex; 
   align-items: center; 
@@ -437,6 +369,7 @@ onMounted(fetchCart)
   border-radius: 30px;
   padding: 4px;
 }
+
 .qty-btn { 
   border: none; 
   background: #fff; 
@@ -453,7 +386,9 @@ onMounted(fetchCart)
   transition: all 0.2s;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
+
 .qty-btn:hover { color: #00a8e8; transform: scale(1.05); }
+
 .qty-value {
   width: 40px;
   text-align: center;
@@ -467,7 +402,6 @@ onMounted(fetchCart)
   letter-spacing: -0.5px;
 }
 
-
 .summary-box { 
   background: #f8f9fa; 
   padding: 35px; 
@@ -475,6 +409,7 @@ onMounted(fetchCart)
   position: sticky; 
   top: 140px; 
 }
+
 .summary-box h3 { 
   font-weight: 900; 
   font-size: 1.2rem;
@@ -499,89 +434,10 @@ onMounted(fetchCart)
   font-size: 0.95rem;
   color: #555; 
 }
+
 .summary-row.delivery {
   padding-top: 15px;
 }
-
-
-.promo-section {
-  margin: 10px 0;
-  padding: 15px 0;
-  border-top: 1px dashed #ddd;
-  border-bottom: 1px dashed #ddd;
-}
-.promo-input-group {
-  display: flex;
-  gap: 10px;
-}
-.promo-input-group input {
-  flex-grow: 1;
-  padding: 12px 15px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-family: 'Inter', sans-serif;
-  font-weight: 600;
-  text-transform: uppercase;
-  outline: none;
-  transition: border-color 0.2s;
-}
-.promo-input-group input:focus {
-  border-color: #00a8e8;
-}
-.promo-input-group button {
-  background: #1a1a1a;
-  color: #fff;
-  border: none;
-  padding: 0 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 800;
-  transition: background 0.3s;
-}
-.promo-input-group button:hover {
-  background: #00a8e8;
-}
-
-.applied-promo {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(0, 168, 232, 0.1);
-  color: #00a8e8;
-  padding: 12px 15px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-.applied-promo strong {
-  font-weight: 900;
-}
-.remove-promo-btn {
-  background: none;
-  border: none;
-  color: #00a8e8;
-  cursor: pointer;
-  font-weight: 900;
-  font-size: 1.1rem;
-  transition: transform 0.2s;
-}
-.remove-promo-btn:hover {
-  transform: scale(1.2);
-}
-
-.promo-msg {
-  font-size: 0.8rem;
-  margin: 10px 0 0;
-  font-weight: 600;
-}
-.promo-msg.error { color: #ff3333; }
-.promo-msg.success { color: #216ed3; }
-
-.discount-row {
-  color: #10b981;
-  font-weight: 700;
-}
-
 
 .free-badge { 
   color: #fff; 
@@ -602,10 +458,12 @@ onMounted(fetchCart)
   border-bottom: 2px solid #000; 
   margin-bottom: 30px;
 }
+
 .total-label {
   font-weight: 800;
   font-size: 1.1rem;
 }
+
 .total-amount {
   font-weight: 900; 
   font-size: 2rem; 
@@ -628,15 +486,18 @@ onMounted(fetchCart)
   gap: 10px;
   transition: all 0.3s ease; 
 }
+
 .checkout-btn:hover { 
   background: #00a8e8; 
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(0, 168, 232, 0.2);
 }
+
 .btn-icon {
   font-size: 1.4rem;
   transition: transform 0.3s;
 }
+
 .checkout-btn:hover .btn-icon {
   transform: translateX(5px);
 }
@@ -649,7 +510,6 @@ onMounted(fetchCart)
   font-weight: 500;
 }
 
-
 .empty-cart { 
   text-align: center; 
   padding: 100px 20px; 
@@ -659,16 +519,19 @@ onMounted(fetchCart)
   max-width: 600px;
   margin: 40px auto;
 }
+
 .empty-cart h2 {
   font-weight: 900;
   font-size: 2rem;
   margin: 0 0 10px 0;
 }
+
 .empty-cart p { 
   font-size: 1.1rem; 
   color: #666; 
   margin-bottom: 35px; 
 }
+
 .back-shop-btn { 
   display: inline-block; 
   background: #000;
@@ -679,10 +542,12 @@ onMounted(fetchCart)
   text-decoration: none; 
   transition: all 0.3s;
 }
+
 .back-shop-btn:hover { 
   background: #00a8e8; 
   transform: translateY(-2px);
 }
+
 .loader-container {
   position: fixed;
   top: 0;
@@ -706,7 +571,6 @@ onMounted(fetchCart)
   animation: spin 1.2s linear infinite;
 }
 
-
 .bike-wheel::before {
   content: '';
   position: absolute;
@@ -718,7 +582,6 @@ onMounted(fetchCart)
   border: 3px dashed #7f8c8d; 
   border-radius: 50%;
 }
-
 
 .bike-wheel::after {
   content: '';

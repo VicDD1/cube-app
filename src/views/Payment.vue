@@ -15,24 +15,63 @@ const loading = ref(true)
 const showPaymentModal = ref(false)
 const isPaypalLoading = ref(false)
 
-
 const addresses = ref([])
 const selectedAddressId = ref(null)
+
+
+const promoCodeInput = ref('')
+const appliedPromo = ref(null) 
+const promoError = ref('')
+
+const applyPromo = async () => {
+  promoError.value = ''
+  const code = promoCodeInput.value.trim().toUpperCase()
+  
+  if (!code) return
+
+  try {
+    const res = await fetch(`${API_BASE}/CodePromo/GetByCode/${code}`)
+    if (res.ok) {
+      const data = await res.json()
+      appliedPromo.value = {
+        code: data.idCodepromo.trim(),
+        pourcentage: data.pourcentage
+      }
+      promoCodeInput.value = ''
+    } else {
+      promoError.value = 'Code promo invalide ou expiré.'
+      appliedPromo.value = null
+    }
+  } catch (err) {
+    console.error("Erreur promo:", err)
+    promoError.value = 'Erreur lors de la vérification.'
+  }
+}
+
+const removePromo = () => {
+  appliedPromo.value = null
+  promoError.value = ''
+}
+
 
 const subTotalCart = computed(() => {
   if (!cart.value?.lignePaniers) return 0
   return cart.value.lignePaniers.reduce((acc, item) => acc + (item.prixUnitaire * item.quantiteSelectionnee), 0)
 })
 
-const finalTotalCart = computed(() => subTotalCart.value)
+const discountAmount = computed(() => {
+  if (!appliedPromo.value) return 0
+  return subTotalCart.value * appliedPromo.value.pourcentage
+})
+
+const finalTotalCart = computed(() => {
+  const total = subTotalCart.value - discountAmount.value
+  return total > 0 ? total : 0
+})
+
 
 const insertionCommande = async () => {
-  if (!idClient.value || !cart.value.lignePaniers?.length) {
-    console.error("Données client ou panier manquantes");
-    return false;
-  }
-
-  
+  if (!idClient.value || !cart.value.lignePaniers?.length) return false
   if (!selectedAddressId.value) {
     alert("Veuillez sélectionner une adresse de livraison.");
     return false;
@@ -44,12 +83,11 @@ const insertionCommande = async () => {
     idTypeLivraison: 2, 
     idPanier: parseInt(cart.value.idPanier),
     dateCommande: new Date().toISOString().split('T')[0], 
-    montantTotalCommande: parseFloat(finalTotalCart.value),
+    montantTotalCommande: parseFloat(finalTotalCart.value.toFixed(2)),
     coutLivraison: 0,
     dateLivraison: "2026-12-30",
     typePaiement: "CB",
     statutLivraison: "prepare",
-
     ligneCommandes: cart.value.lignePaniers.map(item => ({
       reference: item.reference.trim(),
       idCommande: 0, 
@@ -62,23 +100,13 @@ const insertionCommande = async () => {
   try {
     const response = await fetch(`${API_BASE}/Commande/PostCommande`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(commandeData)
     });
-
-    if (response.ok) {
-      console.log("✅ Commande enregistrée avec succès !");
-      return true;
-    } else {
-      const errorDetail = await response.json();
-      console.error("❌ ÉCHEC FINAL :", errorDetail);
-      return false;
-    }
+    
+    return response.ok;
   } catch (err) {
-    console.error("❌ Erreur réseau :", err);
+    console.error("Erreur réseau :", err);
     return false;
   }
 };
@@ -90,61 +118,42 @@ const selectStripe = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        amount: finalTotalCart.value,
+        amount: parseFloat(finalTotalCart.value.toFixed(2)),
         customerName: appStore.user?.prenomClient || 'Client CUBE'
       }),
     })
-
-    if (!response.ok) throw new Error("Serveur Stripe injoignable");
     const session = await response.json()
-
     if (session.url) {
       const success = await insertionCommande();
-
-      if (success) {
-        window.location.href = session.url;
-      } else {
-        alert("Erreur lors de la création de la commande. Paiement annulé.");
-      }
+      if (success) window.location.href = session.url;
     }
   } catch (err) {
-    console.error("Erreur Stripe :", err)
-    alert("Service de paiement indisponible (vérifiez node server.js)")
+    alert("Service de paiement indisponible")
   } finally {
     isPaypalLoading.value = false
   }
 }
 
-
 const initPayPal = async () => {
   isPaypalLoading.value = true
   try {
-    const paypal = await loadScript({ 
-      "client-id": import.meta.env.VITE_PAYPAL_CLIENT_ID, 
-      currency: "EUR"
-    })
-
+    const paypal = await loadScript({ "client-id": import.meta.env.VITE_PAYPAL_CLIENT_ID, currency: "EUR" })
     if (paypal) {
       await paypal.Buttons({
         createOrder: (data, actions) => {
           return actions.order.create({
-            purchase_units: [{
-              amount: { value: finalTotalCart.value.toFixed(2) }
-            }]
+            purchase_units: [{ amount: { value: finalTotalCart.value.toFixed(2) } }]
           })
         },
         onApprove: async (data, actions) => {
           await actions.order.capture()
           const success = await insertionCommande()
-          if (success) {
-            router.push('/confirmation')
-          }
-        },
-        onError: (err) => { console.error("Erreur PayPal SDK:", err) }
+          if (success) router.push('/confirmation')
+        }
       }).render('#paypal-button-container')
     }
   } catch (error) {
-    console.error("Erreur script PayPal:", error)
+    console.error(error)
   } finally {
     isPaypalLoading.value = false
   }
@@ -168,8 +177,6 @@ const fetchAddresses = async () => {
   if (!idClient.value) return
   try {
     const list = []
-
-    
     if (appStore.user?.idAdresseFacturation) {
       const resFact = await fetch(`${API_BASE}/Adresse/GetAdresseById/${appStore.user.idAdresseFacturation}`)
       if (resFact.ok) {
@@ -184,53 +191,38 @@ const fetchAddresses = async () => {
       }
     }
 
-    
     const resLiv = await fetch(`${API_BASE}/AdresseLivraison/GetByClient/${idClient.value}`)
     if (resLiv.ok) {
       const dataLiv = await resLiv.json()
       const livraisons = dataLiv.$values || dataLiv || []
-      
       livraisons.forEach(liv => {
         const adrDetail = liv.idAdresseNavigation || liv.adresseNavigation || liv.adresse || liv
-        
         if (!list.find(a => a.idAdresse === adrDetail.idAdresse)) {
-          list.push({
-            idAdresse: adrDetail.idAdresse,
-            titre: 'Adresse de livraison',
-            rue: adrDetail.rue,
-            cp: adrDetail.codePostal,
-            ville: adrDetail.ville
-          })
+           list.push({
+             idAdresse: adrDetail.idAdresse,
+             titre: 'Adresse de livraison',
+             rue: adrDetail.rue,
+             cp: adrDetail.codePostal,
+             ville: adrDetail.ville
+           })
         }
       })
     }
-
     addresses.value = list
-    
-    if (list.length > 0) {
-      selectedAddressId.value = list[0].idAdresse
-    }
-
-  } catch (err) { 
-    console.error("Erreur chargement adresses:", err) 
-  }
+    if (list.length > 0) selectedAddressId.value = list[0].idAdresse
+  } catch (err) { console.error(err) }
 }
 
 const fetchCart = async () => {
-  if (!idClient.value) { 
-    router.push('/login'); 
-    return; 
-  }
+  if (!idClient.value) { router.push('/login'); return; }
   try {
     const res = await fetch(`${API_BASE}/Panier/GetActiveCart/${idClient.value}`)
     if (res.ok) {
       const data = await res.json()
       const detailsRes = await fetch(`${API_BASE}/Panier/GetDetails/${data.idPanier}`)
       const detailsData = await detailsRes.json()
-      
-      cart.value = detailsData;
-      cart.value.idPanier = data.idPanier; 
-
+      cart.value = detailsData
+      cart.value.idPanier = data.idPanier
       await Promise.all(cart.value.lignePaniers.map(async (item) => {
         const artRes = await fetch(`${API_BASE}/Articles/GetArticleDetails/${item.reference.trim()}`)
         if (artRes.ok) {
@@ -241,7 +233,7 @@ const fetchCart = async () => {
         }
       }))
     }
-  } catch (err) { console.error("Erreur fetchCart:", err) } finally { loading.value = false }
+  } catch (err) { console.error(err) } finally { loading.value = false }
 }
 
 onMounted(() => {
@@ -268,19 +260,14 @@ onMounted(() => {
               + Ajouter / Modifier
             </button>
           </div>
-
+          
           <div v-if="addresses.length === 0" class="no-address-box">
             <p>Vous n'avez pas encore d'adresse enregistrée.</p>
             <button class="pay-btn" style="padding: 15px; margin-top: 10px;" @click="router.push('/profil/adresses')">CRÉER UNE ADRESSE</button>
           </div>
-
+          
           <div v-else class="address-list">
-            <label 
-              v-for="adr in addresses" 
-              :key="adr.idAdresse" 
-              class="address-selector-card" 
-              :class="{ active: selectedAddressId === adr.idAdresse }"
-            >
+            <label v-for="adr in addresses" :key="adr.idAdresse" class="address-selector-card" :class="{ active: selectedAddressId === adr.idAdresse }">
               <input type="radio" :value="adr.idAdresse" v-model="selectedAddressId" name="address_selection" />
               <div class="address-info">
                 <span class="a-title">{{ adr.titre }}</span>
@@ -298,8 +285,8 @@ onMounted(() => {
             <label class="delivery-card active">
               <input type="radio" checked />
               <div class="delivery-info">
-                <span class="d-title">Livraison Standard</span>
-                <span class="d-time">3 à 5 jours ouvrés</span>
+                 <span class="d-title">Livraison Standard</span>
+                 <span class="d-time">3 à 5 jours ouvrés</span>
               </div>
               <span class="d-price">OFFERT</span>
             </label>
@@ -312,17 +299,35 @@ onMounted(() => {
           <h3>VOTRE PANIER</h3>
           <div class="items-preview">
             <div v-for="item in cart.lignePaniers" :key="item.reference" class="preview-item">
-              <div class="preview-info">
-                <span class="p-qty">{{ item.quantiteSelectionnee }}x</span>
-                <span class="p-name">{{ item.nomArticle || item.reference }}</span>
-              </div>
+               <div class="preview-info">
+                 <span class="p-qty">{{ item.quantiteSelectionnee }}x</span>
+                 <span class="p-name">{{ item.nomArticle || item.reference }}</span>
+               </div>
               <span class="p-price">{{ (item.prixUnitaire * item.quantiteSelectionnee).toLocaleString() }} €</span>
             </div>
+          </div>
+
+          <div class="promo-section">
+            <div v-if="!appliedPromo" class="promo-input-group">
+              <input type="text" v-model="promoCodeInput" placeholder="CODE PROMO" @keyup.enter="applyPromo" />
+              <button @click="applyPromo">OK</button>
+            </div>
+            <div v-else class="applied-promo">
+              <span><strong>{{ appliedPromo.code }}</strong> (-{{ appliedPromo.pourcentage * 100 }}%)</span>
+              <button @click="removePromo" class="remove-promo-btn">✕</button>
+            </div>
+            <p v-if="promoError" class="promo-error">{{ promoError }}</p>
           </div>
 
           <div class="summary-details">
             <div class="summary-row"><span>Sous-total HT</span><span>{{ (subTotalCart / 1.2).toFixed(2) }} €</span></div>
             <div class="summary-row"><span>TVA (20%)</span><span>{{ (subTotalCart - (subTotalCart / 1.2)).toFixed(2) }} €</span></div>
+            
+            <div v-if="appliedPromo" class="summary-row promo-line">
+              <span>Réduction</span>
+              <span>-{{ discountAmount.toFixed(2) }} €</span>
+            </div>
+
             <div class="summary-row delivery"><span>Livraison</span><span class="free-badge">OFFERTE</span></div>
           </div>
 
@@ -340,7 +345,7 @@ onMounted(() => {
       <div class="modal-content">
         <button class="modal-close" @click="showPaymentModal = false">✖</button>
         <h3>PAIEMENT SÉCURISÉ</h3>
-        <p class="modal-subtitle">Montant : <strong>{{ finalTotalCart.toLocaleString() }} €</strong></p>
+        <p class="modal-subtitle">Montant à régler : <strong>{{ finalTotalCart.toLocaleString() }} €</strong></p>
         
         <div class="payment-methods">
           <button class="gateway-btn stripe-btn" @click="selectStripe">
@@ -370,7 +375,6 @@ onMounted(() => {
 .section-title-wrapper { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .section-title-wrapper h2 { font-size: 1.2rem; font-weight: 900; margin: 0; }
 .btn-add-address { background: none; border: none; color: #00a8e8; font-weight: 800; font-style: italic; cursor: pointer; font-size: 0.9rem; text-decoration: underline; }
-.btn-add-address:hover { color: #000; }
 
 .no-address-box { padding: 30px; border: 2px dashed #ccc; border-radius: 8px; text-align: center; background: #fafafa; }
 .no-address-box p { font-weight: 600; color: #555; margin-bottom: 15px; }
@@ -381,36 +385,53 @@ onMounted(() => {
 .address-selector-card.active { border-color: #00a8e8; background: rgba(0, 168, 232, 0.03); }
 .address-selector-card input[type="radio"] { margin-top: 4px; margin-right: 15px; cursor: pointer; accent-color: #00a8e8; }
 .address-info { display: flex; flex-direction: column; }
-.a-title { font-size: 0.7rem; font-weight: 900; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.a-title { font-size: 0.7rem; font-weight: 900; color: #888; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px;}
 .a-name { font-weight: 900; margin-bottom: 4px; font-size: 1rem; }
 .a-line { font-size: 0.95rem; font-weight: 500; color: #555; margin-bottom: 2px; }
 
 .delivery-card { display: flex; align-items: center; padding: 20px; border: 2px solid #00a8e8; border-radius: 8px; background: rgba(0, 168, 232, 0.05); }
 .delivery-card input { accent-color: #00a8e8; }
-.delivery-info { flex-grow: 1; margin-left: 15px; display: flex; flex-direction: column; }
+.delivery-info { flex-grow: 1; margin-left: 15px; display: flex; flex-direction: column;}
 .d-title { font-weight: 800; }
 .d-price { font-weight: 900; color: #00a8e8; }
+
+
+.promo-section { margin: 20px 0; padding-bottom: 15px; border-bottom: 1px solid #ddd; }
+.promo-input-group { display: flex; gap: 8px; }
+.promo-input-group input { flex-grow: 1; padding: 10px; border: 2px solid #eee; border-radius: 6px; font-weight: 700; text-transform: uppercase; }
+.promo-input-group button { background: #000; color: #fff; border: none; padding: 0 15px; border-radius: 6px; font-weight: 800; cursor: pointer; font-size: 0.75rem;}
+.applied-promo { display: flex; justify-content: space-between; align-items: center; background: rgba(0, 168, 232, 0.1); color: #00a8e8; padding: 10px 15px; border-radius: 6px; font-weight: 600; font-size: 0.9rem;}
+.remove-promo-btn { background: none; border: none; color: #00a8e8; cursor: pointer; font-weight: 900; font-size: 1.1rem; transition: transform 0.2s;}
+.remove-promo-btn:hover { transform: scale(1.2); }
+.promo-error { color: #e74c3c; font-size: 0.75rem; font-weight: 700; margin-top: 5px; }
 
 .summary-box { background: #f8f9fa; padding: 30px; border-radius: 12px; position: sticky; top: 100px; }
 .items-preview { margin-bottom: 20px; max-height: 250px; overflow-y: auto; }
 .preview-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed #ddd; font-size: 0.9rem; }
 .p-qty { font-weight: 800; color: #00a8e8; margin-right: 8px; }
 
-.summary-details { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
-.summary-row { display: flex; justify-content: space-between; font-size: 0.95rem; color: #555; }
+.summary-details { display: flex; flex-direction: column; gap: 10px; margin-top: 20px;}
+.summary-row { display: flex; justify-content: space-between; font-size: 0.95rem; color: #555;}
+.promo-line { color: #10b981 !important; font-weight: 800; }
+.free-badge { color: #fff; background: #00a8e8; font-weight: 800; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; letter-spacing: 1px; }
+
 .summary-total { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; margin-top: 15px; border-top: 2px solid #000; }
+.total-label { font-weight: 800; font-size: 1.1rem; }
 .total-amount { font-weight: 900; font-size: 1.8rem; }
 
 .pay-btn { width: 100%; background: #000; color: #fff; border: none; padding: 20px; font-weight: 900; font-size: 1.1rem; border-radius: 8px; cursor: pointer; transition: 0.3s; }
 .pay-btn:hover:not(:disabled) { background: #00a8e8; transform: translateY(-2px); }
 .pay-btn:disabled { background: #ccc; cursor: not-allowed; }
 
+
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 2000; display: flex; justify-content: center; align-items: center; }
 .modal-content { background: #fff; padding: 40px; border-radius: 16px; width: 90%; max-width: 450px; text-align: center; position: relative; }
 .modal-close { position: absolute; top: 15px; right: 20px; border: none; background: none; font-size: 1.5rem; cursor: pointer; }
+.modal-subtitle { margin-bottom: 20px; font-size: 1.1rem; }
 
 .payment-methods { display: flex; flex-direction: column; gap: 20px; margin-top: 20px; }
-.gateway-btn { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 15px; border: 2px solid #eee; border-radius: 12px; background: #fff; cursor: pointer; font-weight: 800; }
+.gateway-btn { display: flex; align-items: center; justify-content: center; gap: 15px; padding: 15px; border: 2px solid #eee; border-radius: 12px; background: #fff; cursor: pointer; font-weight: 800; transition: border-color 0.2s;}
+.gateway-btn:hover { border-color: #00a8e8; }
 .payment-logo { height: 25px; }
 
 @media (max-width: 900px) {

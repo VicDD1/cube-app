@@ -270,7 +270,7 @@ const handleGoogleSuccess = async (response) => {
       form.nom = userData.family_name ? userData.family_name.toUpperCase() : '';
       form.prenomClient = userData.given_name || '';
       
-      // On enlève la fausse date de naissance ici, car le champ est maintenant visible et requis
+      
       
       form.password = Math.random().toString(36).slice(-10) + "A1!"; 
       confirmPassword.value = form.password;
